@@ -23,6 +23,7 @@
   const STANDARD = new Set(['국어', '사회', '도덕', '수학', '과학', '실과', '체육', '음악', '미술', '영어', '바른생활', '슬기로운생활', '즐거운생활'].map(norm));
   const NO_REDUCE = new Set(['체육', '음악', '미술'].map(norm));        // 기준 시수 감축 불가
   const NO_REDUCE_GN = new Set(['즐거운생활'].map(norm));              // 감축하지 않도록 권장(경남)
+  const KEEP = new Set(['체육', '음악', '미술'].map(norm));              // 되도록 기준 시수 그대로(학교 방침, 2026-09-28 사용자 지시)
 
   // ───────── 달력 계산 ─────────
   // cfg = { semesters:[{name,from,to}], vacations:[{name,from,to}], holidays:[{name,from,to}],
@@ -436,6 +437,13 @@
         warn(`${m.grade}학년 표: ${pair}학년군 두 해(${autoInfo.map(a => `${a.gy}학년 ${a.yy}년`).join('·')}) 어디에도 학교자율시간 과목이 없습니다. ${pair}학년군은 한 학기 이상 필수입니다.`);
       }
       gr.autoInfo = autoInfo;
+      for (const row of m.rows) {
+        if (row.kind !== 'sub' || !KEEP.has(norm(row.name))) continue;
+        const c = row.cells['v' + m.cur], b = row.cells['b' + m.cur];
+        if (!c || !b || c.r !== row.r || b.r !== row.r) continue;
+        const v = gradeVals[i].get(c), base = gradeVals[i].get(b);
+        if (v !== null && base && v !== base) warn(`${m.grade}학년 표 · ${row.name} ${v}시간(기준 ${base}): 체육·음악·미술은 되도록 기준 시수대로 둡니다. «남은 시수 자동 배분»을 누르면 기준으로 되돌리고 차이를 다른 교과로 옮깁니다.`);
+      }
 
       // 학년 표 머리글 연도 바로잡기(예: 3학년(2024년) → 2025년)
       for (const Y of [1, 2]) {
@@ -517,27 +525,35 @@
   // 반환: 새 값 배열(rows와 같은 순서) 또는 null(자동 배분 안 함 → 화면에 '직접 배분' 경고만 표시)
   // 규칙: 기준 대비 여유(비율)가 가장 큰 교과부터 1시간씩 → 모든 교과가 비슷한 비율로 고르게 늘고 준다.
   //  - 한 해 기준의 ±20% 안에서만 움직인다(교과군 두 해 합계 검사는 따로 한다)
-  //  - 체육·음악·미술은 기준 밑으로, 즐거운 생활은 (경남 권장) 기준 밑으로 줄이지 않는다
+  //  - 체육·음악·미술은 되도록 기준 그대로(학교 방침): 기준과 다르면 먼저 기준으로 되돌려 그 차이까지 다른 교과로 옮기고,
+  //    다른 교과로 다 못 옮길 때(늘려야 할 때)만 마지막에 늘린다. 기준 밑으로는 법령상 못 줄인다
+  //  - 즐거운 생활은 (경남 권장) 기준 밑으로 줄이지 않는다
   //  - 학교자율시간 과목(기준 없음)과 창체는 건드리지 않는다: 자율시간은 34주 기준 시수로 정해 두고,
   //    창체는 행사별 배당표(창체 시간 배당)와 묶여 있어서다
   function distributeResidual(rows, residual) {
     const next = rows.map(r => r.value);
     const cand = rows.map((r, i) => ({ i, ...r, key: norm(r.name) }))
       .filter(r => r.kind === 'sub' && r.base > 0 && r.value !== null && r.value !== undefined);
+    for (const r of cand) if (KEEP.has(r.key) && next[r.i] !== r.base) { residual += next[r.i] - r.base; next[r.i] = r.base; }
     const lo = r => (NO_REDUCE.has(r.key) || NO_REDUCE_GN.has(r.key) ? r.base : Math.ceil(r.base * (1 - RULES.changeRate)));
     const hi = r => Math.floor(r.base * (1 + RULES.changeRate));
     const dir = Math.sign(residual);
-    for (let left = Math.abs(residual); left > 0; left--) {
-      let best = null, bestScore = 0;
-      for (const r of cand) {
-        const room = dir > 0 ? hi(r) - next[r.i] : next[r.i] - lo(r);
-        const score = room / r.base;
-        if (room > 0 && (score > bestScore || (score === bestScore && best && r.base > best.base))) { best = r; bestScore = score; }
+    let left = Math.abs(residual);
+    const spread = pool => {
+      for (; left > 0; left--) {
+        let best = null, bestScore = 0;
+        for (const r of pool) {
+          const room = dir > 0 ? hi(r) - next[r.i] : next[r.i] - lo(r);
+          const score = room / r.base;
+          if (room > 0 && (score > bestScore || (score === bestScore && best && r.base > best.base))) { best = r; bestScore = score; }
+        }
+        if (!best) break;                            // 이 묶음엔 더 옮길 여유가 없다
+        next[best.i] += dir;
       }
-      if (!best) break;                              // 더 옮길 여유가 없으면 남은 만큼은 경고로 남긴다
-      next[best.i] += dir;
-    }
-    return next;
+    };
+    spread(cand.filter(r => !KEEP.has(r.key)));
+    if (left > 0 && dir > 0) spread(cand.filter(r => KEEP.has(r.key)));   // 최후 수단: 체육·음악·미술 늘리기
+    return next;                                     // 그래도 남은 시간은 화면 경고로 남는다
   }
 
   // 학교자율시간 과목: 교과 행 중 국가 교과가 아니고 그해 기준 시수가 없는 과목

@@ -542,7 +542,7 @@ function vSubjects() {
     <div class="card"><h2>${S.grade}학년 ${year}학년도 교과·창체 시수</h2>
     ${d ? `<div class="banner err">달력으로 계산한 연간 시수는 <b>${Core.fmt(gr.calTotal)}시간</b>인데 표 합계는 <b>${Core.fmt(gr.curTotal)}시간</b>입니다. <b>${d > 0 ? d + '시간을 더 배분해야' : -d + '시간을 줄여야'}</b> 합니다.
       <button class="btn small" data-act="auto:${gi}">남은 시수 자동 배분</button></div>`
-      : `<div class="banner ok">달력 시수 ${Core.fmt(gr.calTotal)}시간과 표 합계가 같습니다.</div>`}
+      : `<div class="banner ok">달력 시수 ${Core.fmt(gr.calTotal)}시간과 표 합계가 같습니다.${gradeChecks.some(c => /체육·음악·미술은/.test(c.msg)) ? ` <button class="btn small" data-act="auto:${gi}">체육·음악·미술 기준으로 되돌리기</button>` : ''}</div>`}
     ${S.autoMsg && S.autoMsg.gi === gi ? `<div class="banner info">${esc(S.autoMsg.text)}</div>` : ''}
     ${gradeChecks.map(c => `<div class="banner ${c.level === 'warn' ? 'warn' : 'err'}">${esc(c.msg)}</div>`).join('')}
     <div class="scroll"><table>
@@ -551,7 +551,7 @@ function vSubjects() {
       ${body}
     </table></div>
     <p class="muted" style="margin:8px 0 0">증감, 소계, 두 해 합계, 표 «연간 요약», «창체 시간 배당»은 입력값에서 자동으로 계산됩니다. 창체 증감은 첫 활동(자율) 칸에 붙습니다.</p>
-    <p class="muted" style="margin:4px 0 0">«남은 시수 자동 배분»은 기준 대비 여유 비율이 가장 큰 교과부터 1시간씩 옮깁니다. 한 해 기준의 ±20% 안에서만 움직이고, 체육·음악·미술·즐거운 생활은 기준 밑으로 줄이지 않으며, 학교자율시간 과목과 창체는 건드리지 않습니다.</p></div>
+    <p class="muted" style="margin:4px 0 0">«남은 시수 자동 배분»은 기준 대비 여유 비율이 가장 큰 교과부터 1시간씩 옮깁니다. 한 해 기준의 ±20% 안에서만 움직입니다. <b>체육·음악·미술은 되도록 기준 시수 그대로</b> 두고(다른 교과로 다 못 옮길 때만 늘림, 줄이지는 않음), 즐거운 생활은 줄이지 않으며, 학교자율시간 과목과 창체는 건드리지 않습니다.</p></div>
     ${autoForm}`;
 }
 
