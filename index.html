@@ -52,15 +52,19 @@
   .changed s { color: var(--sub); font-weight: 450; margin-right: 4px; }
   /* 주별 시수: 원본 구성표 색 — 머리글 #E6EEF7, 월·주·일수 #F2F2F2, 휴업일 #F7E8E8+빨강, 단축 주 파랑 */
   /* 칸 너비 고정: 날짜 5칸·학년 6칸이 각각 같은 너비(긴 휴업일 이름이 칸을 넓히지 않게) */
-  table.wk { table-layout: fixed; min-width: 900px; }
+  table.wk { table-layout: fixed; min-width: 1100px; }
   table.wk th { background: #E6EEF7; }
   table.wk td.gray { background: #F2F2F2; }
   table.wk td.hol { background: #F7E8E8; color: #D40000; font-weight: 700; }
   table.wk td.vac { background: #F2F2F2; color: var(--sub); }
   table.wk td.blank { background: #fafafa; }
   /* 행 높이 통일: 모든 주 행을 같은 높이로, 휴업일 이름은 한 줄(넘치면 …, 전체 이름은 마우스 올리면) */
-  table.wk td { height: 44px; padding: 2px 5px; }
-  table.wk td small { display: block; font-size: 11px; font-weight: 600; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  table.wk td { height: 38px; padding: 2px 4px; }
+  table.wk td.notes { text-align: left; font-size: 12.5px; line-height: 1.4; padding: 4px 8px; }
+  table.wk td.notes .red { color: #D40000; font-weight: 600; }
+  table.wk td[data-tip] { cursor: help; }
+  /* 즉시 뜨는 툴팁(브라우저 기본 title은 1초쯤 늦게 뜬다) */
+  .tip { position: fixed; z-index: 50; display: none; max-width: 320px; padding: 6px 10px; border-radius: 6px; background: #1f2937; color: #fff; font-size: 13px; font-weight: 500; line-height: 1.45; white-space: pre-line; pointer-events: none; box-shadow: 0 4px 14px rgba(0,0,0,.18); }
   table.wk td.short { color: #0000FF; font-weight: 700; }
   table.wk tr.sumrow td { background: #F2F2F2; }
   .circ { display: inline-block; min-width: 24px; height: 24px; line-height: 21px; padding: 0 3px; border: 1.5px solid #1f2937; border-radius: 12px; font-weight: 700; }
@@ -444,15 +448,16 @@ function vBase() {
 }
 
 function vWeeks() {
+  // 한글 구성표와 같은 모양: 날짜 칸엔 숫자만(휴업일 분홍·빨강, 행사일 동그라미), 내용은 «주요 교육활동» 열에
   // 파일 모드에서만 원본과 다른 값을 표시(새로 만들기는 원본이 없다)
   const old = S.mode === 'file' ? new Map(S.out.edits.map(e => [`${e.table}|${e.why}`, e.cell.text])) : new Map();
   const normal = [1, 2, 3, 4, 5, 6].map(g => S.cfg.base[g].reduce((a, b) => a + +b, 0));
   const isVac = s => S.cfg.vacations.some(v => s >= v.from && s <= v.to);
   return S.out.res.sems.map(sem => {
     const label = `${sem.name} 주간 시수`;
-    const cellV = (why, val, cls = '') => {
-      const o = old.get(`${label}|${why}`);
-      return o !== undefined ? `<td class="changed ${cls}" title="파일 값 ${esc(o)}"><s>${esc(o)}</s>${val}</td>` : `<td class="${cls}">${val}</td>`;
+    const cellV = (why, val, cls = '', tip = '') => {
+      const o = old.get(`${label}|${why}`), t = tip ? ` data-tip="${esc(tip)}"` : '';
+      return o !== undefined ? `<td class="changed ${cls}" data-tip="파일 값 ${esc(o)} → ${val}"><s>${esc(o)}</s>${val}</td>` : `<td class="${cls}"${t}>${val}</td>`;
     };
     const rows = sem.weeks.map((w, i) => {
       let month = '';
@@ -464,24 +469,27 @@ function vWeeks() {
       const days = w.off.map((why, k) => {
         const s = Core.iso(Core.addDays(Core.D(w.mon), k)), d = Core.D(s).getUTCDate();
         if (why === null && !w.dates.includes(s)) return '<td class="blank"></td>';
-        if (why && isVac(s)) return `<td class="vac" title="${esc(why)}">${d}<small>방학</small></td>`;
-        if (why) return `<td class="hol" title="${esc(why)}">${d}<small>${esc(why.replace('대체공휴일', '대체'))}</small></td>`;   // 칸에선 짧게, 전체 이름은 title
+        if (why && isVac(s)) return `<td class="vac" data-tip="${md(s)} ${esc(why)}">${d}</td>`;
+        if (why) return `<td class="hol" data-tip="${md(s)} ${esc(why)}">${d}</td>`;
         const evs = S.cfg.events.filter(e => s >= e.from && s <= (e.to || e.from));
         return evs.length
-          ? `<td title="${esc(evs.map(e => `${e.name}: ${e.grades.join(',')}학년 ${e.periods}교시`).join('\n'))}"><span class="circ">${d}</span></td>`
+          ? `<td data-tip="${esc(evs.map(e => `${md(s)} ${e.name} · ${e.grades.join(',')}학년 ${e.periods}교시`).join('\n'))}"><span class="circ">${d}</span></td>`
           : `<td>${d}</td>`;
       }).join('');
-      return `<tr>${month}<td class="gray">${i + 1}</td>${days}${cellV(`${i + 1}주`, w.dates.length, 'gray')}${w.hours.map((h, g) => cellV(`${i + 1}주 ${g + 1}학년`, h, h !== normal[g] ? 'short' : '')).join('')}</tr>`;
+      const notes = Blank.weekNotes(S.cfg, w).map(n => `<div class="${n.holiday ? 'red' : ''}">${esc(n.t)}</div>`).join('');
+      const hours = w.hours.map((h, g) => cellV(`${i + 1}주 ${g + 1}학년`, h, h !== normal[g] ? 'short' : '', h !== normal[g] ? `${g + 1}학년: 평소 ${normal[g]}시간 → 이번 주 ${h}시간` : '')).join('');
+      return `<tr>${month}<td class="gray">${i + 1}</td>${days}${cellV(`${i + 1}주`, w.dates.length, 'gray')}<td class="notes">${notes}</td>${hours}</tr>`;
     }).join('');
+    const vac = S.cfg.vacations.filter(v => v.from > sem.weeks[0].mon && v.from <= sem.to).map(v => `${v.name} ${md(v.from)}~${md(v.to)}`).join(', ');
     return `<div class="card"><h2>${sem.name} <span class="muted" style="font-weight:500">${md(sem.from)} ~ ${md(sem.to)}</span></h2>
       <div class="scroll"><table class="wk">
-        <colgroup><col style="width:6%"><col style="width:4.5%">${'<col style="width:10%">'.repeat(5)}<col style="width:6.5%">${'<col>'.repeat(6)}</colgroup>
-        <tr><th rowspan="2">월</th><th rowspan="2">주</th><th colspan="5">날짜</th><th rowspan="2">수업<br>일수</th><th colspan="6">학년별 주당 수업 시수</th></tr>
+        <colgroup><col style="width:4.5%"><col style="width:3.5%">${'<col style="width:5%">'.repeat(5)}<col style="width:4.5%"><col style="width:30%">${'<col>'.repeat(6)}</colgroup>
+        <tr><th rowspan="2">월</th><th rowspan="2">주</th><th colspan="5">연간 수업 일수</th><th rowspan="2">수업<br>일수</th><th rowspan="2">주요 교육활동</th><th colspan="6">학년별 주당 수업 시수</th></tr>
         <tr>${WD.map(w => `<th>${w}</th>`).join('')}${[1, 2, 3, 4, 5, 6].map(g => `<th>${g}</th>`).join('')}</tr>
         ${rows}
-        <tr class="sumrow"><td colspan="2">${sem.name} 소계</td>${sem.dow.map(n => `<td>${n}</td>`).join('')}<td>${sem.days}</td>${sem.hours.map(h => `<td>${Core.fmt(h)}</td>`).join('')}</tr>
+        <tr class="sumrow"><td colspan="2">${sem.name} 소계</td>${sem.dow.map(n => `<td>${n}</td>`).join('')}<td>${sem.days}</td><td class="notes">${esc(vac)}</td>${sem.hours.map(h => `<td>${Core.fmt(h)}</td>`).join('')}</tr>
       </table></div>
-      <p class="legend"><span class="sw hol">5</span>휴업일(공휴일·재량휴업, 이름 전체는 마우스를 올리면) <span class="sw vac">5</span>방학 <span class="sw"><span class="circ">5</span></span>행사일(교시 조정, 마우스를 올리면 내용) <span class="sw short">23</span>평소와 시수가 다른 주${S.mode === 'file' ? ' <span class="sw changed">23</span>한글 파일과 달라지는 값(취소선이 원래 값)' : ''}</p></div>`;
+      <p class="legend"><span class="sw hol">5</span>휴업일 <span class="sw vac">5</span>방학 <span class="sw"><span class="circ">5</span></span>행사일 <span class="sw short">23</span>평소와 시수가 다른 주${S.mode === 'file' ? ' <span class="sw changed">23</span>한글 파일과 달라지는 값(취소선이 원래 값)' : ''} · 날짜·시수 칸에 마우스를 올리면 내용이 바로 보입니다.</p></div>`;
   }).join('');
 }
 
@@ -577,6 +585,22 @@ function vChanges() {
     ${L.map(e => `<tr><td class="l">${esc(e.why || `${e.cell.r + 1}행 ${e.cell.c + 1}열`)}</td><td class="muted">${esc(e.cell.text.split('\n')[0])}</td><td class="changed">${esc(e.text)}</td></tr>`).join('')}
     </table></div>`).join('');
 }
+
+// ───────── 즉시 툴팁: data-tip 달린 칸에 마우스를 올리면 바로 띄운다 ─────────
+const tipEl = document.createElement('div');
+tipEl.className = 'tip';
+document.body.appendChild(tipEl);
+document.addEventListener('mouseover', e => {
+  const t = e.target.closest && e.target.closest('[data-tip]');
+  if (!t) { tipEl.style.display = 'none'; return; }
+  tipEl.textContent = t.dataset.tip;
+  tipEl.style.display = 'block';
+  const r = t.getBoundingClientRect(), w = tipEl.offsetWidth, h = tipEl.offsetHeight;
+  const left = Math.max(8, Math.min(window.innerWidth - w - 8, r.left + r.width / 2 - w / 2));
+  const top = r.bottom + h + 10 > window.innerHeight ? r.top - h - 6 : r.bottom + 6;   // 아래 공간이 없으면 위로
+  tipEl.style.left = left + 'px'; tipEl.style.top = top + 'px';
+});
+window.addEventListener('scroll', () => { tipEl.style.display = 'none'; }, true);
 
 render();
 </script>

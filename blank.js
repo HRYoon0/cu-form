@@ -191,6 +191,22 @@
   const gradesText = gs => (gs.length === 6 ? '전학년' : gs.every((x, i) => i === 0 || x === gs[i - 1] + 1) && gs.length > 2 ? `${gs[0]}~${gs[gs.length - 1]}학년` : `${gs.join(',')}학년`);
   const days = (f, t) => (C().D(t) - C().D(f)) / 864e5 + 1;
 
+  // 주요 교육활동 문구: 휴업일(방학 제외, 빨강)과 행사. 화면 주별 표와 한글 파일이 같이 쓴다
+  // 같은 날 같은 이름의 행사(학년별로 교시만 다른 것)는 한 줄로: 여름방학 개학식(3,4학년 4교시, 5,6학년 5교시)
+  function weekNotes(cfg, w) {
+    const notes = [];
+    for (let k = 0; k < 5; k++) {
+      const s = add(w.mon, k), why = w.off[k];
+      if (why === null && !w.dates.includes(s)) continue;
+      if (why) { if (!cfg.vacations.some(v => s >= v.from && s <= v.to)) notes.push({ t: `${md(s)} ${why}`, holiday: true }); continue; }
+      const byName = new Map();
+      for (const e of cfg.events) if (s >= e.from && s <= (e.to || e.from) && (e.from === s || k === 0))
+        (byName.get(e.name) || byName.set(e.name, []).get(e.name)).push(`${gradesText(e.grades)} ${e.periods}교시`);
+      for (const [name, parts] of byName) notes.push({ t: `${md(s)} ${name}(${parts.join(', ')})`, holiday: false });
+    }
+    return notes;
+  }
+
   // ───────── 표별 조립 ─────────
   function schedTable(cfg) {
     const rows = [
@@ -236,23 +252,14 @@
         cells.push(cell(r, 0, String(w.month), { rs: span, bf: 6 }));
       }
       cells.push(cell(r, 1, String(i + 1), { bf: 6 }));
-      const notes = [];
       for (let k = 0; k < 5; k++) {
         const s = add(w.mon, k), why = w.off[k];
         if (why === null && !w.dates.includes(s)) { cells.push(cell(r, 2 + k, '')); continue; }
         const d = String(C().D(s).getUTCDate());
-        if (why) {
-          cells.push(cell(r, 2 + k, d, { bf: 5, cp: 14 }));                 // 휴업일: 분홍 칸 + 빨간 굵은 글씨
-          if (!cfg.vacations.some(v => s >= v.from && s <= v.to)) notes.push({ t: `${md(s)} ${why}`, cp: 9 });
-        } else {
-          const evs = cfg.events.filter(e => s >= e.from && s <= (e.to || e.from));
-          cells.push(cell(r, 2 + k, d, evs.length ? { cp: 8 } : {}));
-          // 같은 날 같은 이름의 행사(학년별로 교시만 다른 것)는 한 줄로: 여름방학 개학식(3,4학년 4교시, 5,6학년 5교시)
-          const byName = new Map();
-          for (const e of evs) if (e.from === s || k === 0) (byName.get(e.name) || byName.set(e.name, []).get(e.name)).push(`${gradesText(e.grades)} ${e.periods}교시`);
-          for (const [name, parts] of byName) notes.push(`${md(s)} ${name}(${parts.join(', ')})`);
-        }
+        if (why) cells.push(cell(r, 2 + k, d, { bf: 5, cp: 14 }));                 // 휴업일: 분홍 칸 + 빨간 굵은 글씨
+        else cells.push(cell(r, 2 + k, d, cfg.events.some(e => s >= e.from && s <= (e.to || e.from)) ? { cp: 8 } : {}));
       }
+      const notes = weekNotes(cfg, w).map(n => (n.holiday ? { t: n.t, cp: 9 } : n.t));
       cells.push(cell(r, 7, '', { bf: 6 }), cell(r, 8, notes.length ? notes : '', { pp: 21 }), cell(r, 9, ''));
       // 평소(요일 기본 시수 합)와 다른 주는 파란 글씨 — 원본 구성표 관례
       for (let k = 0; k < 6; k++) cells.push(cell(r, 10 + k, '', w.hours[k] !== cfg.base[k + 1].reduce((a, b) => a + +b, 0) ? { cp: 13 } : {}));
@@ -387,7 +394,7 @@
     return zip.generateAsync({ type: 'blob', compression: 'DEFLATE', mimeType: 'application/hwp+zip' });
   }
 
-  const api = { holidaysFor, hasLunar, LUNAR, ELECTIONS, BANDS, bandOf, defaultCfg, defaultPlan, buildSection, packHwpx, rangeOf };
+  const api = { weekNotes, holidaysFor, hasLunar, LUNAR, ELECTIONS, BANDS, bandOf, defaultCfg, defaultPlan, buildSection, packHwpx, rangeOf };
   if (typeof module !== 'undefined') module.exports = api;
   g.Blank = api;
 })(typeof window !== 'undefined' ? window : globalThis);
