@@ -8,6 +8,8 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="core.js"></script>
+<script src="skeleton.js"></script>
+<script src="blank.js"></script>
 <style>
   :root {
     --bg: #f5f6f8; --card: #ffffff; --line: #dfe2e7; --text: #1d1f24; --sub: #5f5f66;
@@ -61,41 +63,70 @@
   ul.checks li { margin: 3px 0; }
   .gradebtns { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
   .gradebtns .btn.on { background: var(--blue); color: #fff; border-color: var(--blue); }
+  .start { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
+  .start > p { grid-column: 1 / -1; }
+  .sel { font: inherit; border: 1px solid var(--line); border-radius: 6px; padding: 5px 8px; background: #fff; color: var(--text); }
+  th.other, td.other { background: #fafbfc; }
   .drop { border: 2px dashed var(--line); border-radius: 12px; padding: 40px; text-align: center; background: var(--card); }
   label.chk { display: inline-flex; align-items: center; gap: 2px; margin-right: 6px; white-space: nowrap; }
-  @media (max-width: 800px) { .grid-summary { grid-template-columns: repeat(3, minmax(0, 1fr)); } main { padding: 16px; } header { padding: 12px 16px; } }
+  @media (max-width: 800px) { .start { grid-template-columns: 1fr; } .grid-summary { grid-template-columns: repeat(3, minmax(0, 1fr)); } main { padding: 16px; } header { padding: 12px 16px; } }
 </style>
 </head>
 <body>
 <header>
-  <h1>교육과정 시수 자동 맞춤</h1>
-  <label class="btn">한글 파일(.hwpx) 열기<input id="file" type="file" accept=".hwpx" hidden></label>
+  <h1 data-act="home" style="cursor:pointer">교육과정 시수 자동 맞춤</h1>
   <span id="fname" class="muted"></span>
   <span style="flex:1"></span>
   <button id="saveCfg" class="btn" disabled>설정 백업(JSON)</button>
-  <label class="btn" id="loadCfgLbl">설정 불러오기<input id="loadCfg" type="file" accept=".json" hidden></label>
+  <label class="btn">설정 불러오기<input id="loadCfg" type="file" accept=".json" hidden></label>
   <button id="download" class="btn primary" disabled>한글 파일로 내려받기</button>
 </header>
-<main id="app">
-  <div class="drop">
-    <p style="font-size:17px;font-weight:600;margin:0 0 6px">교육과정 구성표 한글 파일(.hwpx)을 열어 주세요</p>
-    <p class="muted" style="margin:0">.hwp 파일은 한글에서 «다른 이름으로 저장 → HWPX 문서»로 바꾼 뒤 여세요. 파일은 이 컴퓨터 밖으로 전송되지 않습니다.</p>
-  </div>
-</main>
+<input id="file" type="file" accept=".hwpx" hidden>
+<main id="app"></main>
 <script>
 'use strict';
 const $ = s => document.querySelector(s);
 const WD = ['월', '화', '수', '목', '금'];
-const S = { zip: null, xml: '', name: '', doc: null, cfg: null, vals: null, tab: 'summary', grade: 1, out: null, restored: false };
+// mode: 'new' = 페이지에서 처음부터 구성해 새 한글 파일 생성 / 'file' = 기존 한글 파일에 채워 넣기
+const S = { mode: null, zip: null, xml: '', name: '', year: null, doc: null, cfg: null, plan: null, vals: null, tab: 'summary', grade: 1, out: null, restored: false, error: '' };
 
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const md = s => { const d = Core.D(s); return `${d.getUTCMonth() + 1}.${d.getUTCDate()}.`; };
 const yearOf = () => +S.cfg.semesters[0].from.slice(0, 4);
-// 저장 이름 = 학년도 + 파일 이름(내려받을 때 붙는 '_시수반영'은 떼고) → 한 PC를 여러 학교·선생님이 써도 섞이지 않게
+// 저장 이름: 새로 만들기 = 학년도, 파일 채우기 = 학년도 + 파일 이름('_시수반영'은 떼고) → 한 PC를 여러 학교가 써도 섞이지 않게
 const baseName = () => S.name.replace(/\.hwpx$/i, '').replace(/(_시수반영)+$/, '');
-const storeKey = () => `cu_form:cfg:${yearOf()}:${baseName()}`;
-function saveLocal() { try { localStorage.setItem(storeKey(), JSON.stringify(S.cfg)); } catch (e) {} }
-function loadLocal() { try { return JSON.parse(localStorage.getItem(storeKey()) || 'null'); } catch (e) { return null; } }
+const storeKey = () => (S.mode === 'new' ? `cu_form:new:${S.year}` : `cu_form:cfg:${yearOf()}:${baseName()}`);
+function saveLocal() { try { localStorage.setItem(storeKey(), JSON.stringify(S.mode === 'new' ? { cfg: S.cfg, plan: S.plan } : S.cfg)); } catch (e) {} }
+function loadLocal(key) { try { return JSON.parse(localStorage.getItem(key || storeKey()) || 'null'); } catch (e) { return null; } }
+const clone = o => JSON.parse(JSON.stringify(o));
+
+// ───────── 시작 화면 ─────────
+function vStart() {
+  const now = new Date(), y0 = now.getMonth() >= 8 ? now.getFullYear() + 1 : now.getFullYear();   // 9월부터는 다음 학년도를 기본으로
+  const years = [y0 - 1, y0, y0 + 1, y0 + 2];
+  return `<div class="start">
+    <div class="card"><h2>새로 만들기</h2>
+      <p class="muted" style="margin-top:0">학년도를 고르면 학기·방학·공휴일·요일별 시수·식 행사, 2022 개정 교육과정 기준 시수가 기본으로 채워집니다. 고친 뒤 새 한글 파일로 내려받습니다.</p>
+      <p><select id="newYear" class="sel">${years.map(y => `<option value="${y}" ${y === y0 ? 'selected' : ''}>${y}학년도${loadLocal(`cu_form:new:${y}`) ? ' (저장된 구성 있음)' : ''}</option>`).join('')}</select>
+      <button class="btn primary" data-act="new">시작</button></p>
+      <p class="muted src" style="margin-bottom:0">공휴일은 2026·2027학년도만 대체공휴일까지 들어 있습니다. 다른 해는 날짜가 고정된 공휴일만 채워지니 설·추석·부처님오신날을 넣어 주세요.</p></div>
+    <div class="card"><h2>기존 한글 파일에 채워 넣기</h2>
+      <p class="muted" style="margin-top:0">학교에서 쓰던 교육과정 구성표(.hwpx)를 열면 원본 서식은 그대로 두고 숫자만 계산해 바꿉니다. .hwp는 한글에서 «다른 이름으로 저장 → HWPX»로 바꾼 뒤 여세요.</p>
+      <p style="margin-bottom:0"><label class="btn" for="file">한글 파일(.hwpx) 열기</label></p></div>
+    <p class="muted src">파일과 입력한 내용은 이 브라우저 안에서만 처리되고 어떤 서버로도 보내지 않습니다.</p>
+  </div>`;
+}
+
+function startNew(year, data) {
+  Object.assign(S, { mode: 'new', year, name: '', zip: null, tab: 'summary', grade: 1, autoMsg: null });
+  const saved = data || loadLocal(`cu_form:new:${year}`);
+  S.restored = !!saved && !data;
+  S.cfg = saved ? saved.cfg : Blank.defaultCfg(year);
+  S.plan = saved ? saved.plan : Blank.defaultPlan();
+  $('#fname').textContent = `${year}학년도 새로 만들기`;
+  $('#download').disabled = $('#saveCfg').disabled = false;
+  render();
+}
 
 // ───────── 파일 열기 ─────────
 $('#file').addEventListener('change', async e => {
@@ -107,35 +138,36 @@ $('#file').addEventListener('change', async e => {
     if (!sec) throw new Error('한글 문서(HWPX)의 본문을 찾지 못했습니다.');
     const xml = await sec.async('string');
     const doc = Core.readDoc(xml);
-    Object.assign(S, { zip, xml, name: f.name, doc });
-    S.cfg = { ...structuredClone(doc.cfg), events: [] };
+    Object.assign(S, { mode: 'file', zip, xml, name: f.name, doc, plan: null, tab: 'summary', grade: 1, autoMsg: null });
+    S.cfg = { ...clone(doc.cfg), events: [] };
     const saved = loadLocal();
     S.restored = !!saved;
     if (saved) S.cfg = saved;
     S.vals = doc.gradeModels.map(Core.initialVals);
     $('#fname').textContent = f.name;
     $('#download').disabled = $('#saveCfg').disabled = false;
-    S.tab = 'summary';
     render();
   } catch (err) {
-    $('#app').innerHTML = `<div class="banner err">파일을 읽지 못했습니다: ${esc(err.message)}</div>`;
+    alert('파일을 읽지 못했습니다: ' + err.message);
     console.error(err);
   }
   e.target.value = '';
 });
 
-function resetToFile() {
-  S.cfg = { ...structuredClone(S.doc.cfg), events: [] };
+function resetData() {
   try { localStorage.removeItem(storeKey()); } catch (e) {}
+  if (S.mode === 'new') { S.cfg = Blank.defaultCfg(S.year); S.plan = Blank.defaultPlan(); }
+  else S.cfg = { ...clone(S.doc.cfg), events: [] };
   S.restored = false;
   render();
 }
 
 // ───────── 설정 백업/불러오기 ─────────
 $('#saveCfg').addEventListener('click', () => {
+  const data = S.mode === 'new' ? { cfg: S.cfg, plan: S.plan } : S.cfg;
   const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob([JSON.stringify(S.cfg, null, 2)], { type: 'application/json' }));
-  a.download = `시수설정_${yearOf()}_${baseName()}.json`;
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
+  a.download = S.mode === 'new' ? `시수구성_${S.year}학년도.json` : `시수설정_${yearOf()}_${baseName()}.json`;
   a.click();
 });
 $('#loadCfg').addEventListener('change', async e => {
@@ -143,9 +175,11 @@ $('#loadCfg').addEventListener('change', async e => {
   if (!f) return;
   try {
     const c = JSON.parse(await f.text());
-    if (!c.semesters || !c.base || !c.events) throw new Error('시수 설정 파일이 아닙니다.');
-    if (!S.doc) throw new Error('먼저 한글 파일을 여세요.');
-    S.cfg = c; saveLocal(); render();
+    if (c.plan && c.cfg) { startNew(+c.cfg.semesters[0].from.slice(0, 4), c); saveLocal(); }       // 새로 만들기 구성
+    else if (c.semesters && c.base && c.events) {                                                  // 학사·행사 설정만
+      if (!S.cfg) throw new Error('학사 설정만 담긴 파일입니다. 먼저 새로 만들기를 시작하거나 한글 파일을 여세요.');
+      S.cfg = c; saveLocal(); render();
+    } else throw new Error('시수 설정 파일이 아닙니다.');
   } catch (err) { alert('불러오지 못했습니다: ' + err.message); }
   e.target.value = '';
 });
@@ -153,20 +187,28 @@ $('#loadCfg').addEventListener('change', async e => {
 // ───────── 내려받기 ─────────
 $('#download').addEventListener('click', async () => {
   const out = S.out;
-  if (!out.edits.length && !confirm('바뀌는 칸이 없습니다. 그래도 내려받을까요?')) return;
+  if (!out) return;
+  if (S.mode === 'file' && !out.edits.length && !confirm('바뀌는 칸이 없습니다. 그래도 내려받을까요?')) return;
   const errs = out.checks.filter(c => c.level === 'error');
   if (errs.length && !confirm(`아직 맞지 않는 항목이 ${errs.length}개 있습니다.\n\n${errs.map(c => '· ' + c.msg).join('\n')}\n\n이대로 내려받을까요?`)) return;
   const nx = Core.applyEdits(S.xml, out.edits);
-  S.zip.file('Contents/section0.xml', nx, { createFolders: false });
-  const mt = await S.zip.file('mimetype').async('string');
-  S.zip.file('mimetype', mt, { compression: 'STORE', createFolders: false });              // 규약: mimetype은 무압축·첫 항목
-  const blob = await S.zip.generateAsync({ type: 'blob', compression: 'DEFLATE', mimeType: 'application/hwp+zip' });
+  let blob, name;
+  if (S.mode === 'new') {
+    blob = await Blank.packHwpx(nx);
+    name = `${S.year}학년도_교육과정_시수표.hwpx`;
+  } else {
+    S.zip.file('Contents/section0.xml', nx, { createFolders: false });
+    const mt = await S.zip.file('mimetype').async('string');
+    S.zip.file('mimetype', mt, { compression: 'STORE', createFolders: false });              // 규약: mimetype은 무압축·첫 항목
+    blob = await S.zip.generateAsync({ type: 'blob', compression: 'DEFLATE', mimeType: 'application/hwp+zip' });
+    name = baseName() + '_시수반영.hwpx';
+    // 내려받은 파일이 새 기준이 되도록 다시 읽는다
+    S.xml = nx; S.doc = Core.readDoc(nx); S.vals = S.doc.gradeModels.map(Core.initialVals);
+  }
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = baseName() + '_시수반영.hwpx';
+  a.download = name;
   a.click();
-  // 내려받은 파일이 새 기준이 되도록 다시 읽는다
-  S.xml = nx; S.doc = Core.readDoc(nx); S.vals = S.doc.gradeModels.map(Core.initialVals);
   render();
 });
 
@@ -178,6 +220,18 @@ function rerender() {
     render();
     if (id) { const el = document.querySelector(`[data-id="${id}"]`); if (el) el.focus(); }
   });
+}
+// 교과 표 칸 값 바꾸기: 파일 모드는 칸 값에, 새로 만들기는 구성(plan)에 적는다(문서를 매번 다시 조립하므로)
+function setVal(gi, cell, v) {
+  if (S.mode === 'file') { S.vals[gi].set(cell, v); return; }
+  const m = S.doc.gradeModels[gi], P = S.plan.grades[gi + 1];
+  for (const row of m.rows) for (const k of ['b1', 'v1', 'b2', 'v2']) {
+    if (row.cells[k] !== cell || cell.r !== row.r) continue;
+    const Y = +k[1] - 1;
+    if (row.kind === 'cha' && k[0] === 'b') P.chaBase[Y] = v;
+    else { const pr = P.rows.find(x => x.name === row.name); if (pr) { pr[k[0]] = pr[k[0]] || [null, null]; pr[k[0]][Y] = v; } }
+    return;
+  }
 }
 document.addEventListener('change', e => {
   const t = e.target, id = t.dataset.id;
@@ -192,26 +246,32 @@ document.addEventListener('change', e => {
     if (b === 'grade') { const g = +c; ev.grades = t.checked ? [...new Set([...ev.grades, g])].sort() : ev.grades.filter(x => x !== g); }
     else { ev[b] = b === 'periods' ? (v ?? 0) : v; if (b === 'from' && (!ev.to || ev.to < v)) ev.to = v; }
   }
-  else if (kind === 'val') { const m = S.doc.gradeModels[a]; const cell = m.table.cells[b]; S.vals[a].set(cell, v); rerender(); return; }
-  saveLocal();
+  else if (kind === 'val') setVal(+a, S.doc.gradeModels[a].table.cells[b], v);
+  else return;
+  if (kind !== 'val' || S.mode === 'new') saveLocal();
   rerender();
 });
 document.addEventListener('click', e => {
   const t = e.target.closest('[data-act]');
   if (!t) return;
   const [act, a, b] = t.dataset.act.split(':');
+  if (act === 'home') { if (S.mode && !confirm('처음 화면으로 갈까요? 입력한 학사·행사 설정은 이 브라우저에 저장돼 있습니다.')) return; Object.assign(S, { mode: null, doc: null, cfg: null, out: null }); $('#fname').textContent = ''; $('#download').disabled = $('#saveCfg').disabled = true; render(); return; }
+  if (act === 'new') { startNew(+$('#newYear').value); return; }
+  if (!S.cfg) return;
   const y = yearOf();
   if (act === 'tab') S.tab = a;
   else if (act === 'grade') S.grade = +a;
-  else if (act === 'add-hol') S.cfg.holidays.push({ name: '휴업일', from: `${y}-03-02`, to: `${y}-03-02` });
+  else if (act === 'add-hol') S.cfg.holidays.push({ name: '재량휴업일', from: `${y}-05-04`, to: `${y}-05-04` });
   else if (act === 'add-vac') S.cfg.vacations.push({ name: '방학', from: `${y}-07-25`, to: `${y}-08-30` });
   else if (act === 'add-ev') S.cfg.events.push({ name: '행사', from: `${y}-03-03`, to: `${y}-03-03`, grades: [1, 2, 3, 4, 5, 6], periods: 4 });
   else if (act === 'del') S.cfg[a].splice(+b, 1);
   else if (act === 'sort-ev') S.cfg.events.sort((p, q) => p.from.localeCompare(q.from));
-  else if (act === 'reset') { if (confirm('저장해 둔 학사일정·행사 설정을 지우고 파일 내용으로 되돌릴까요?')) resetToFile(); return; }
-  else if (act === 'auto') { autoDistribute(+a); }
+  else if (act === 'reset') { if (confirm(S.mode === 'new' ? '저장해 둔 구성을 지우고 기본값으로 새로 시작할까요?' : '저장해 둔 학사일정·행사 설정을 지우고 파일 내용으로 되돌릴까요?')) resetData(); return; }
+  else if (act === 'auto') autoDistribute(+a);
+  else if (act === 'add-auto') { if (!addAuto(+a)) return; }
+  else if (act === 'del-auto') { const P = S.plan.grades[+a]; P.rows = P.rows.filter(x => !(x.auto && x.name === b)); }
   else return;
-  if (act.startsWith('add') || act === 'del' || act === 'sort-ev') saveLocal();
+  if (act.startsWith('add') || act.startsWith('del') || act === 'sort-ev' || (S.mode === 'new' && act === 'auto')) saveLocal();
   render();
 });
 
@@ -236,20 +296,47 @@ function autoDistribute(gi) {
   const next = Core.distributeResidual(rows.map(({ name, kind, base, value }) => ({ name, kind, base, value })), residual);
   const moved = rows.map((r, i) => (next[i] !== r.value ? `${r.name} ${r.value}→${next[i]}` : null)).filter(Boolean);
   const done = next.reduce((a, v, i) => a + ((v || 0) - (rows[i].value || 0)), 0);
-  rows.forEach((r, i) => S.vals[gi].set(r.cell, next[i]));
+  rows.forEach((r, i) => setVal(gi, r.cell, next[i]));
   S.autoMsg = { gi, text: `자동 배분: ${moved.join(', ') || '바꿀 수 있는 과목 없음'}` +
     (done !== residual ? ` — ${Math.abs(residual - done)}시간은 ±20%·감축 불가 기준 때문에 옮기지 못했습니다. 직접 조정하세요.` : '') };
 }
 
+// 학교자율시간 과목 추가(새로 만들기 전용): 관련 교과(군) 아래에 기준 없는 교과 행으로 넣는다
+function addAuto(gr) {
+  const name = ($('#autoName').value || '').trim(), group = $('#autoGroup').value, hours = +$('#autoHours').value || 0, Y = +$('#autoYear').value;
+  const P = S.plan.grades[gr];
+  if (!name) { alert('과목 이름을 적어 주세요.'); return false; }
+  if (P.rows.some(x => x.name === name)) { alert('같은 이름의 과목이 이미 있습니다.'); return false; }
+  const v = [null, null]; v[Y] = hours;          // 운영하지 않는 해는 빈칸
+  const rows = P.rows, lastInGroup = rows.map(x => x.group).lastIndexOf(group);
+  rows.splice(lastInGroup + 1, 0, { name, kind: 'sub', group, auto: true, b: [null, null], v });
+  return true;
+}
+
 // ───────── 그리기 ─────────
 function render() {
-  if (!S.doc) return;
-  S.out = Core.buildEdits(S.doc, S.cfg, S.vals);
+  if (!S.mode) { $('#app').innerHTML = vStart(); return; }
+  try {
+    if (S.mode === 'new') {
+      S.xml = Blank.buildSection(S.cfg, S.plan, S.year);      // 입력이 바뀔 때마다 문서를 다시 조립(주 수·과목 수가 바뀌어도 표가 따라감)
+      S.doc = Core.readDoc(S.xml);
+      S.vals = S.doc.gradeModels.map(Core.initialVals);
+      saveLocal();
+    }
+    S.out = Core.buildEdits(S.doc, S.cfg, S.vals);
+  } catch (err) {
+    console.error(err);
+    $('#app').innerHTML = `<div class="banner err">계산하지 못했습니다: ${esc(err.message)}</div><p>학사일정(학기·방학 날짜)을 확인하세요. <button class="btn small" data-act="reset">기본값으로 되돌리기</button></p>`;
+    return;
+  }
   const errs = S.out.checks.filter(c => c.level === 'error');
-  $('#download').textContent = `한글 파일로 내려받기 (${S.out.edits.length}칸 변경)`;
-  const tabs = [['summary', '요약·검사'], ['cal', '학사일정'], ['events', '행사 시수 조정'], ['base', '요일별 기본 시수'], ['weeks', '주별 시수'], ['subjects', '교과·창체 시수'], ['changes', `바뀌는 칸 (${S.out.edits.length})`]];
+  $('#download').textContent = S.mode === 'new' ? '한글 파일 만들기' : `한글 파일로 내려받기 (${S.out.edits.length}칸 변경)`;
+  const tabs = [['summary', '요약·검사'], ['cal', '학사일정'], ['events', '행사 시수 조정'], ['base', '요일별 기본 시수'], ['weeks', '주별 시수'], ['subjects', '교과·창체 시수']];
+  if (S.mode === 'file') tabs.push(['changes', `바뀌는 칸 (${S.out.edits.length})`]);
+  const restoredMsg = S.mode === 'new' ? `저장해 둔 ${S.year}학년도 구성을 이어서 열었습니다. <button class="btn small" data-act="reset">기본값으로 새로 시작</button>`
+    : `이 컴퓨터에 저장해 둔 ${yearOf()}학년도 학사일정·행사 설정을 불러왔습니다. <button class="btn small" data-act="reset">파일 내용으로 되돌리기</button>`;
   $('#app').innerHTML = `
-    ${S.restored ? `<div class="banner info">이 컴퓨터에 저장해 둔 ${yearOf()}학년도 학사일정·행사 설정을 불러왔습니다. <button class="btn small" data-act="reset">파일 내용으로 되돌리기</button></div>` : ''}
+    ${S.restored ? `<div class="banner info">${restoredMsg}</div>` : ''}
     <div class="tabs">${tabs.map(([k, l]) => `<button data-act="tab:${k}" class="${S.tab === k ? 'on' : ''}">${l}</button>`).join('')}</div>
     ${({ summary: vSummary, cal: vCal, events: vEvents, base: vBase, weeks: vWeeks, subjects: vSubjects, changes: vChanges })[S.tab](errs)}`;
 }
@@ -261,6 +348,15 @@ function vSummary(errs) {
     return `<div class="gcard ${d ? 'bad-card' : ''}"><div class="muted">${i + 1}학년</div><b>${Core.fmt(g.calTotal)}</b> <span class="muted">시간</span>
       <div style="font-size:13px">${d ? `<span class="bad">교과표 ${Core.fmt(g.curTotal)} → ${d > 0 ? d + '시간 더 배분' : -d + '시간 줄이기'}</span>` : '<span class="good">교과표와 일치</span>'}</div></div>`;
   }).join('');
+  const steps = S.mode === 'new' ? [
+    '«학사일정»에서 방학 날짜와 학교 재량휴업일을, «행사 시수 조정»에서 시업식·방학식 등의 교시를 우리 학교에 맞게 고칩니다(기본값은 흔한 예시입니다).',
+    '주별 시수, 월별 수업일수, 연간 요약, 학년별 연간 시수가 자동으로 계산됩니다.',
+    '«교과·창체 시수»에서 달력 시수와 교과 합계가 같아지도록 과목 시수를 고치고(«남은 시수 자동 배분» 사용 가능), 학교자율시간 과목을 추가합니다.',
+    '«한글 파일 만들기»를 누르면 학사일정부터 주간 배당까지 모든 표가 담긴 새 한글 파일이 저장됩니다.']
+    : ['«학사일정»에서 휴업일·방학을, «행사 시수 조정»에서 시업식·방학식처럼 교시가 달라지는 날을 입력합니다.',
+      '주별 시수, 월별 수업일수, 연간 요약(표 다), 학년별 연간 시수가 자동으로 계산됩니다.',
+      '«교과·창체 시수»에서 달력 시수와 교과 합계가 같아지도록 과목 시수를 고칩니다. 증감·소계·합계·창체 배당표는 자동입니다.',
+      '«한글 파일로 내려받기»를 누르면 원본 서식 그대로 숫자만 바뀐 파일이 저장됩니다.'];
   return `
   <div class="card">
     <h2>연간 수업일수 ${r.totalDays}일 <span class="muted" style="font-weight:500">(1학기 ${r.sems[0].days}일 · 2학기 ${r.sems[1].days}일 · 방학 ${r.vacationDays}일)</span></h2>
@@ -271,17 +367,12 @@ function vSummary(errs) {
     ${errs.length ? `<div class="banner err">맞지 않는 항목 ${errs.length}개</div><ul class="checks">${errs.map(c => `<li>${esc(c.msg)}</li>`).join('')}</ul>`
       : '<div class="banner ok">모든 합계와 필수 기준이 맞습니다.</div>'}
     ${warns.length ? `<div class="banner warn" style="margin-top:12px">확인할 항목 ${warns.length}개 (편성 기준·권장 사항)</div><ul class="checks">${warns.map(c => `<li>${esc(c.msg)}</li>`).join('')}</ul>` : ''}
-    <p class="muted" style="margin:12px 0 0">내려받으면 <b>${S.out.edits.length}칸</b>이 바뀝니다. 무엇이 바뀌는지는 «바뀌는 칸» 탭에서 확인하세요.</p>
+    ${S.mode === 'file' ? `<p class="muted" style="margin:12px 0 0">내려받으면 <b>${S.out.edits.length}칸</b>이 바뀝니다. 무엇이 바뀌는지는 «바뀌는 칸» 탭에서 확인하세요.</p>` : ''}
   </div>
   ${vAutonomy()}
   <div class="card">
     <h2>사용 순서</h2>
-    <ol style="margin:0;padding-left:20px">
-      <li>«학사일정»에서 휴업일·방학을, «행사 시수 조정»에서 시업식·방학식처럼 교시가 달라지는 날을 입력합니다.</li>
-      <li>주별 시수, 월별 수업일수, 연간 요약(표 다), 학년별 연간 시수가 자동으로 계산됩니다.</li>
-      <li>«교과·창체 시수»에서 달력 시수와 교과 합계가 같아지도록 과목 시수를 고칩니다. 증감·소계·합계·창체 배당표는 자동입니다.</li>
-      <li>«한글 파일로 내려받기»를 누르면 원본 서식 그대로 숫자만 바뀐 파일이 저장됩니다.</li>
-    </ol>
+    <ol style="margin:0;padding-left:20px">${steps.map(s => `<li>${s}</li>`).join('')}</ol>
   </div>`;
 }
 
@@ -291,22 +382,26 @@ function vCal() {
     <td><input type="date" data-id="${kind}:${i}:from" value="${h.from}"></td>
     <td><input type="date" data-id="${kind}:${i}:to" value="${h.to || h.from}"></td>
     <td><button class="btn small" data-act="del:${kind === 'hol' ? 'holidays' : 'vacations'}:${i}">삭제</button></td></tr>`).join('');
+  const holNote = S.mode === 'new'
+    ? `${Blank.HOLIDAYS[S.year] ? '공휴일과 대체공휴일이 채워져 있습니다.' : '<b>날짜가 고정된 공휴일만</b> 채워져 있습니다. 설·추석·부처님오신날·대체공휴일·선거일을 넣어 주세요.'} 학교 재량휴업일은 직접 추가하세요. 제헌절은 공휴일 지정 여부를 확인한 뒤 남기거나 지우세요.`
+    : '시업식·방학식처럼 수업하는 날의 행사는 여기가 아니라 «행사 시수 조정»에 넣으세요. 이 목록은 한글 파일의 학사일정 표에 자동으로 쓰지 않으니, 바뀐 날은 한글에서 직접 고쳐 주세요.';
   return `
   <div class="card"><h2>학기</h2>
     <table style="max-width:560px"><tr><th>학기</th><th>시작</th><th>끝</th></tr>
     ${S.cfg.semesters.map((s, i) => `<tr><td>${s.name}</td><td><input type="date" data-id="sem:${i}:from" value="${s.from}"></td><td><input type="date" data-id="sem:${i}:to" value="${s.to}"></td></tr>`).join('')}</table></div>
   <div class="card"><h2>방학</h2>
     <table style="max-width:760px"><tr><th class="l">이름</th><th>시작</th><th>끝</th><th></th></tr>${listRows('vac', S.cfg.vacations)}</table>
-    <p><button class="btn small" data-act="add-vac">+ 방학 추가</button></p></div>
+    <p><button class="btn small" data-act="add-vac">+ 방학 추가</button></p>
+    ${S.mode === 'new' ? '<p class="muted" style="margin:0">방학 날짜를 바꾸면 «행사 시수 조정»의 방학식·개학식 날짜도 함께 고쳐 주세요(자동으로 옮겨지지 않습니다).</p>' : ''}</div>
   <div class="card"><h2>휴업일 <span class="muted" style="font-weight:500">(공휴일·재량휴업일·선거일 등 수업하지 않는 평일)</span></h2>
     <table style="max-width:760px"><tr><th class="l">이름</th><th>시작</th><th>끝</th><th></th></tr>${listRows('hol', S.cfg.holidays)}</table>
     <p><button class="btn small" data-act="add-hol">+ 휴업일 추가</button></p>
-    <p class="muted" style="margin:0">시업식·방학식처럼 수업하는 날의 행사는 여기가 아니라 «행사 시수 조정»에 넣으세요. 이 목록은 한글 파일의 학사일정 표에 자동으로 쓰지 않으니, 바뀐 날은 한글에서 직접 고쳐 주세요.</p></div>`;
+    <p class="muted" style="margin:0">${holNote}</p></div>`;
 }
 
 function vEvents() {
   return `<div class="card"><h2>행사 시수 조정</h2>
-    <p class="muted" style="margin-top:0">그날 해당 학년이 <b>몇 교시까지</b> 하는지 적습니다. 행사가 없는 날은 «요일별 기본 시수»를 따릅니다. 기간이 겹치면 기간이 짧은 행사가 우선입니다.</p>
+    <p class="muted" style="margin-top:0">그날 해당 학년이 <b>몇 교시까지</b> 하는지 적습니다. 행사가 없는 날은 «요일별 기본 시수»를 따릅니다. 기간이 겹치면 기간이 짧은 행사가 우선입니다.${S.mode === 'new' ? ' 기본으로 넣어 둔 식 행사의 교시는 흔한 예시이니 우리 학교에 맞게 고치세요.' : ''}</p>
     <div class="scroll"><table>
       <tr><th class="l">행사</th><th>시작</th><th>끝</th><th>적용 학년</th><th>교시</th><th></th></tr>
       ${S.cfg.events.map((ev, i) => `<tr>
@@ -328,7 +423,8 @@ function vBase() {
 }
 
 function vWeeks() {
-  const old = new Map(S.out.edits.map(e => [`${e.table}|${e.why}`, e.cell.text]));
+  // 파일 모드에서만 원본과 다른 값을 표시(새로 만들기는 원본이 없다)
+  const old = S.mode === 'file' ? new Map(S.out.edits.map(e => [`${e.table}|${e.why}`, e.cell.text])) : new Map();
   return S.out.res.sems.map(sem => {
     const label = `${sem.name} 주간 시수`;
     const cellV = (why, val) => { const o = old.get(`${label}|${why}`); return o !== undefined ? `<td class="changed" title="파일 값 ${esc(o)}"><s>${esc(o)}</s>${val}</td>` : `<td>${val}</td>`; };
@@ -349,52 +445,72 @@ function vWeeks() {
         ${rows}
         <tr class="sumrow"><td colspan="2">소계</td>${sem.dow.map(n => `<td>${n}</td>`).join('')}<td>${sem.days}</td>${sem.hours.map(h => `<td>${Core.fmt(h)}</td>`).join('')}</tr>
       </table></div>
-      <p class="muted" style="margin:8px 0 0">노란 칸 = 한글 파일과 달라지는 값(취소선이 원래 값)</p></div>`;
+      ${S.mode === 'file' ? '<p class="muted" style="margin:8px 0 0">노란 칸 = 한글 파일과 달라지는 값(취소선이 원래 값)</p>' : ''}</div>`;
   }).join('');
 }
 
 function vSubjects() {
   const gi = S.grade - 1, m = S.doc.gradeModels[gi], gr = S.out.gradeResults[gi];
-  const vals = S.vals[gi], k = 'v' + m.cur, kb = 'b' + m.cur, ko = 'v' + (3 - m.cur);
+  const vals = S.vals[gi], cur = m.cur, oth = 3 - cur;
   const d = gr.calTotal - gr.curTotal;
-  const year = yearOf(), otherYear = year + (m.years[3 - m.cur] - S.grade);
-  const V = c => (c && vals.get(c)) ?? '';
+  const year = yearOf(), otherYear = year + (m.years[oth] - S.grade);
   const diffTxt = n => (n ? `<span class="${n > 0 ? 'good' : 'bad'}">${n > 0 ? '+' : ''}${n}</span>` : '');
   const sums = (kinds, key) => [...new Set(m.rows.filter(x => kinds.includes(x.kind)).map(x => x.cells[key]).filter(Boolean))].reduce((a, c) => a + (vals.get(c) || 0), 0);
   const autoNames = new Set([1, 2].flatMap(Y => Core.autonomousSubjects(m, vals, Y).map(x => x.name)));
+  const planAuto = S.mode === 'new' ? S.plan.grades[S.grade].rows.filter(x => x.auto).map(x => x.name) : [];
+  // 칸 입력: 병합된 칸은 첫 행에만 입력칸, 아래 행은 ↑
+  const inp = (row, key, cls = '') => {
+    const c = row.cells[key];
+    if (!c) return '<td></td>';
+    if (c.r !== row.r) return '<td class="muted">↑</td>';
+    const v = vals.get(c);
+    return `<td class="${cls}"><input type="number" min="0" data-id="val:${gi}:${m.table.cells.indexOf(c)}" value="${v ?? ''}"></td>`;
+  };
   let body = '';
   for (const row of m.rows) {
     if (row.kind === 'sub' || row.kind === 'cha') {
-      const c = row.cells[k], bc = row.cells[kb], oc = row.cells[ko];
-      const top = c && c.r === row.r;
-      const base = bc && bc.r === row.r ? vals.get(bc) || 0 : 0;
-      const input = !c ? '' : top ? `<input type="number" min="0" data-id="val:${gi}:${m.table.cells.indexOf(c)}" value="${V(c) ?? ''}">` : '<span class="muted">↑ 병합</span>';
-      body += `<tr><td class="l">${row.kind === 'sub' ? '교과' : '창체'}</td><td class="l">${esc(row.name)}${autoNames.has(row.name) ? '<span class="badge">학교자율시간</span>' : ''}</td>
-        <td>${bc && bc.r === row.r ? V(bc) : ''}</td><td>${input}</td>
+      const c = row.cells['v' + cur], bc = row.cells['b' + cur];
+      const top = c && c.r === row.r, base = bc && bc.r === row.r ? vals.get(bc) || 0 : 0;
+      const isAuto = autoNames.has(row.name) || planAuto.includes(row.name);
+      body += `<tr><td class="l">${row.kind === 'sub' ? '교과' : '창체'}</td>
+        <td class="l">${esc(row.name)}${isAuto ? '<span class="badge">학교자율시간</span>' : ''}${planAuto.includes(row.name) ? ` <button class="btn small" data-act="del-auto:${S.grade}:${esc(row.name)}">삭제</button>` : ''}</td>
+        ${inp(row, 'b' + cur)}${inp(row, 'v' + cur)}
         <td>${top && row.kind === 'sub' && vals.get(c) !== null ? diffTxt((vals.get(c) || 0) - base) : ''}</td>
-        <td class="muted">${oc && oc.r === row.r ? V(oc) : ''}</td></tr>`;
+        ${inp(row, 'b' + oth, 'other')}${inp(row, 'v' + oth, 'other')}</tr>`;
     } else {
       const kinds = row.kind === 'subSum' ? ['sub'] : row.kind === 'chaSum' ? ['cha'] : ['sub', 'cha'];
-      const v = sums(kinds, k), b = sums(kinds, kb);
+      const v = sums(kinds, 'v' + cur), b = sums(kinds, 'b' + cur);
       body += `<tr class="sumrow"><td class="l" colspan="2">${row.kind === 'subSum' ? '교과 소계' : row.kind === 'chaSum' ? '창체 소계' : '총 수업 시간 수'}</td>
-        <td>${Core.fmt(b)}</td><td>${Core.fmt(v)}</td><td>${diffTxt(v - b)}</td><td class="muted">${Core.fmt(sums(kinds, ko))}</td></tr>`;
+        <td>${Core.fmt(b)}</td><td>${Core.fmt(v)}</td><td>${diffTxt(v - b)}</td><td>${Core.fmt(sums(kinds, 'b' + oth))}</td><td>${Core.fmt(sums(kinds, 'v' + oth))}</td></tr>`;
     }
   }
   const gradeChecks = S.out.checks.filter(c => c.msg.startsWith(`${S.grade}학년 표`));
+  const band = Blank.BANDS[Blank.bandOf(S.grade)];
+  const autoForm = S.mode !== 'new' ? '' : `<div class="card"><h2>학교자율시간 과목 추가</h2>
+    <p class="muted" style="margin-top:0">관련 교과(군) 아래에 기준 시수 없는 과목으로 들어갑니다. 올해 기준 시수는 <b>${Core.fmt(gr.calTotal)}÷34 = ${Math.floor(gr.calTotal / 34)}시간</b>(또는 ${Math.floor(gr.calTotal / 34) + 1}시간)입니다. 넣은 뒤 «남은 시수 자동 배분»으로 다른 교과를 줄이세요.</p>
+    <p style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:0">
+      <input id="autoName" type="text" placeholder="과목 이름" style="min-width:200px">
+      <select id="autoGroup" class="sel">${band.groups.map(g => `<option value="${esc(g.key)}">${esc(g.key)}</option>`).join('')}</select>
+      <select id="autoYear" class="sel"><option value="${cur - 1}">${S.grade}학년(${year}년, 올해)</option><option value="${oth - 1}">${m.years[oth]}학년(${otherYear}년)</option></select>
+      <input id="autoHours" type="number" min="0" value="${Math.floor(gr.calTotal / 34)}"> 시간
+      <button class="btn" data-act="add-auto:${S.grade}">추가</button></p></div>`;
   return `<div class="gradebtns">${[1, 2, 3, 4, 5, 6].map(g => `<button class="btn ${g === S.grade ? 'on' : ''}" data-act="grade:${g}">${g}학년</button>`).join('')}</div>
     <div class="card"><h2>${S.grade}학년 ${year}학년도 교과·창체 시수</h2>
-    ${d ? `<div class="banner err">달력으로 계산한 연간 시수는 <b>${Core.fmt(gr.calTotal)}시간</b>인데 표 합계는 <b>${Core.fmt(gr.curTotal)}시간</b>입니다. <b>${d > 0 ? d + '시간을 더 배분' : -d + '시간을 줄여야'}</b> 합니다.
+    ${d ? `<div class="banner err">달력으로 계산한 연간 시수는 <b>${Core.fmt(gr.calTotal)}시간</b>인데 표 합계는 <b>${Core.fmt(gr.curTotal)}시간</b>입니다. <b>${d > 0 ? d + '시간을 더 배분해야' : -d + '시간을 줄여야'}</b> 합니다.
       <button class="btn small" data-act="auto:${gi}">남은 시수 자동 배분</button></div>`
       : `<div class="banner ok">달력 시수 ${Core.fmt(gr.calTotal)}시간과 표 합계가 같습니다.</div>`}
     ${S.autoMsg && S.autoMsg.gi === gi ? `<div class="banner info">${esc(S.autoMsg.text)}</div>` : ''}
     ${gradeChecks.map(c => `<div class="banner ${c.level === 'warn' ? 'warn' : 'err'}">${esc(c.msg)}</div>`).join('')}
     <div class="scroll"><table>
-      <tr><th class="l">구분</th><th class="l">과목·활동</th><th>본교기준</th><th>본교시수 (입력)</th><th>증감</th><th>${m.years[3 - m.cur]}학년(${otherYear}년)</th></tr>
+      <tr><th class="l" rowspan="2">구분</th><th class="l" rowspan="2">과목·활동</th><th colspan="3">${S.grade}학년 · ${year}년 (올해)</th><th colspan="2" class="other">${m.years[oth]}학년 · ${otherYear}년 (${oth < cur ? '지난해 이수' : '내년 계획'})</th></tr>
+      <tr><th>본교기준</th><th>본교시수</th><th>증감</th><th class="other">본교기준</th><th class="other">본교시수</th></tr>
       ${body}
     </table></div>
-    <p class="muted" style="margin:8px 0 0">증감, 소계, 두 해 합계, 표 «연간 요약», «창체 시간 배당»은 입력값에서 자동으로 계산됩니다. 창체 증감은 파일 관례대로 첫 활동(자율) 칸에 붙습니다.</p>
-    <p class="muted" style="margin:4px 0 0">«남은 시수 자동 배분»은 기준 대비 여유 비율이 가장 큰 교과부터 1시간씩 옮깁니다. 한 해 기준의 ±20% 안에서만 움직이고, 체육·음악·미술·즐거운 생활은 기준 밑으로 줄이지 않으며, 학교자율시간 과목과 창체는 건드리지 않습니다.</p></div>`;
+    <p class="muted" style="margin:8px 0 0">증감, 소계, 두 해 합계, 표 «연간 요약», «창체 시간 배당»은 입력값에서 자동으로 계산됩니다. 창체 증감은 첫 활동(자율) 칸에 붙습니다.</p>
+    <p class="muted" style="margin:4px 0 0">«남은 시수 자동 배분»은 기준 대비 여유 비율이 가장 큰 교과부터 1시간씩 옮깁니다. 한 해 기준의 ±20% 안에서만 움직이고, 체육·음악·미술·즐거운 생활은 기준 밑으로 줄이지 않으며, 학교자율시간 과목과 창체는 건드리지 않습니다.</p></div>
+    ${autoForm}`;
 }
+
 
 function vAutonomy() {
   const rows = [];
@@ -425,6 +541,8 @@ function vChanges() {
     ${L.map(e => `<tr><td class="l">${esc(e.why || `${e.cell.r + 1}행 ${e.cell.c + 1}열`)}</td><td class="muted">${esc(e.cell.text.split('\n')[0])}</td><td class="changed">${esc(e.text)}</td></tr>`).join('')}
     </table></div>`).join('');
 }
+
+render();
 </script>
 </body>
 </html>

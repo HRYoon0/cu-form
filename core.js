@@ -336,6 +336,11 @@
       const over = cfg.base[gr].map((p, k) => ({ p: +p, w: '월화수목금'[k] })).filter(x => x.p > RULES.maxDaily(gr));
       if (over.length) checks.push({ level: 'error', msg: `${gr}학년 요일별 기본 시수(${over.map(x => `${x.w} ${x.p}`).join(', ')}): 하루 ${RULES.maxDaily(gr)}시간을 넘을 수 없습니다.` });
     }
+    for (const e of cfg.events) {
+      let d = e.from, any = false;
+      for (; d <= (e.to || e.from); d = iso(addDays(D(d), 1))) if (!offReason(cfg, d)) { any = true; break; }
+      if (!any) warn(`행사 «${e.name}»(${e.from}${e.to && e.to !== e.from ? '~' + e.to : ''})가 수업일이 아닌 날에 있어 계산에 반영되지 않습니다. 날짜를 확인하세요.`);
+    }
     for (const e of cfg.events) for (const gr of e.grades) {
       if (+e.periods > RULES.maxDailyEvent) checks.push({ level: 'error', msg: `행사 «${e.name}» ${gr}학년 ${e.periods}교시: 하루 최대 ${RULES.maxDailyEvent}시간을 넘습니다.` });
       else if (+e.periods > RULES.maxDaily(gr)) warn(`행사 «${e.name}» ${gr}학년 ${e.periods}교시: 평소 한도 ${RULES.maxDaily(gr)}시간을 넘습니다. 현장체험학습 등 사전 운영 계획이 있을 때만 가능합니다(최대 8시간).`);
@@ -405,7 +410,7 @@
       checks.push(...gr.checks);
       const calTotal = res.gradeTotals[i];
       if (gr.curTotal !== calTotal)
-        checks.push({ level: 'error', grade: m.grade, residual: calTotal - gr.curTotal, msg: `${m.grade}학년: 교과·창체 합계 ${fmt(gr.curTotal)}시간이 달력 시수 ${fmt(calTotal)}시간과 다릅니다. ${calTotal > gr.curTotal ? `${calTotal - gr.curTotal}시간을 더 배분` : `${gr.curTotal - calTotal}시간을 줄여야`} 합니다.` });
+        checks.push({ level: 'error', grade: m.grade, residual: calTotal - gr.curTotal, msg: `${m.grade}학년: 교과·창체 합계 ${fmt(gr.curTotal)}시간이 달력 시수 ${fmt(calTotal)}시간과 다릅니다. ${calTotal > gr.curTotal ? `${calTotal - gr.curTotal}시간을 더 배분해야` : `${gr.curTotal - calTotal}시간을 줄여야`} 합니다.` });
       // 1·3·5학년은 내년 계획까지 더한 두 해 합계가 학년군 최소 시수 이상인지(2·4·6학년은 연간 요약 표에서 검사)
       const minCell = m.rows.find(x => x.kind === 'total')?.cells.nat;
       const twoYear = gr.tot[1].v + gr.tot[2].v - gr.curTotal + calTotal;
