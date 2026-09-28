@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>교육과정 시수 자동 맞춤</title>
+<script>try { var t = localStorage.getItem('cu_form:theme'); if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; } catch (e) {}</script>
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
@@ -11,169 +12,232 @@
 <script src="skeleton.js"></script>
 <script src="blank.js"></script>
 <style>
-  /* 디자인 토큰: 차가운 회색 계열 + 강조색 하나(파랑). 빨강·노랑·초록은 상태 표시에만.
-     모양 규칙: 카드 12px, 버튼·입력 8px, 작은 표시(배지·범례) 6px */
+  /* ───────── 디자인 토큰 ─────────
+     강조색은 청록 하나(주별 표의 파랑=단축 주, 빨강=휴업일과 겹치지 않게). 빨강·노랑·초록은 상태에만.
+     모양 규칙: 카드 14px, 버튼·입력 10px, 배지·범례는 알약(999px)
+     테마: 기본은 시스템 설정(자동), data-theme="light|dark"로 직접 고정 */
   :root {
-    --bg: #f4f6f9; --card: #ffffff; --line: #e3e7ee; --line-strong: #d3d9e3; --text: #1b2230; --sub: #5b6475; --faint: #eef1f5;
-    --blue: #2457d6; --blue-hover: #1d48b5; --blue-bg: #ecf1fd; --blue-ring: rgba(36, 87, 214, .18);
-    --red: #c42b2b; --red-bg: #fdeeee; --green: #1d7a3e; --green-bg: #e9f6ee; --amber: #8a5a00; --amber-bg: #fff5da; --gray-bg: #f3f5f8;
-    --r-card: 12px; --r-ctrl: 8px; --r-chip: 6px;
-    --shadow: 0 1px 2px rgba(27, 34, 48, .05), 0 1px 1px rgba(27, 34, 48, .03);
+    color-scheme: light;
+    --bg: #f5f6f8; --card: #ffffff; --card-2: #fafbfc; --line: #e4e7ec; --line-strong: #d0d5dd; --text: #161b22; --sub: #58606c; --faint: #eef0f3;
+    --accent: #0f766e; --accent-hover: #0b5f59; --accent-bg: #e6f4f2; --accent-ring: rgba(15, 118, 110, .22); --on-accent: #ffffff;
+    --red: #c02b2b; --red-bg: #fdeeee; --red-line: #f0c2c2; --green: #1b7a3d; --green-bg: #e8f5ec; --amber: #8a5a00; --amber-bg: #fff4d6; --amber-line: #e0a82e;
+    --th: #f1f3f6; --th-text: #3a4250; --sum: #f7f8fa;
+    --rail: #0f1a22; --rail-2: #16232d; --rail-text: #c9d3dc; --rail-sub: #8b99a6; --rail-line: #22323e; --rail-on: #ffffff;
+    --shadow: 0 1px 2px rgba(22, 27, 34, .05), 0 2px 8px rgba(22, 27, 34, .04);
+    --r-card: 14px; --r-ctrl: 10px; --r-pill: 999px;
+    /* 주별 표(원본 한글 구성표 색) */
+    --wk-head: #E6EEF7; --wk-gray: #F2F2F2; --wk-hol-bg: #F7E8E8; --wk-hol: #D40000; --wk-short: #0000FF; --wk-blank: #fafafa; --wk-ink: #1f2937;
+    --tip-bg: #1b222c; --tip-text: #ffffff;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --bg: #0d1116; --card: #141a21; --card-2: #11171d; --line: #252d37; --line-strong: #33404d; --text: #e6eaef; --sub: #9aa5b1; --faint: #1b222b;
+      --accent: #2ec4b0; --accent-hover: #4fd3c1; --accent-bg: #0f2a28; --accent-ring: rgba(46, 196, 176, .28); --on-accent: #04201c;
+      --red: #ff7b72; --red-bg: #2c1618; --red-line: #5a2a2d; --green: #56d38a; --green-bg: #11261a; --amber: #f0c060; --amber-bg: #2a2110; --amber-line: #a57a1e;
+      --th: #1a212a; --th-text: #c4ccd6; --sum: #171e26;
+      --rail: #090d11; --rail-2: #111820; --rail-text: #c9d3dc; --rail-sub: #7f8c99; --rail-line: #1c2630; --rail-on: #ffffff;
+      --shadow: 0 1px 2px rgba(0, 0, 0, .3);
+      --wk-head: #1c2838; --wk-gray: #1a2028; --wk-hol-bg: #3a1c20; --wk-hol: #ff8a80; --wk-short: #7fb2ff; --wk-blank: #11161c; --wk-ink: #d7dde4;
+      --tip-bg: #e6eaef; --tip-text: #0d1116;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #0d1116; --card: #141a21; --card-2: #11171d; --line: #252d37; --line-strong: #33404d; --text: #e6eaef; --sub: #9aa5b1; --faint: #1b222b;
+    --accent: #2ec4b0; --accent-hover: #4fd3c1; --accent-bg: #0f2a28; --accent-ring: rgba(46, 196, 176, .28); --on-accent: #04201c;
+    --red: #ff7b72; --red-bg: #2c1618; --red-line: #5a2a2d; --green: #56d38a; --green-bg: #11261a; --amber: #f0c060; --amber-bg: #2a2110; --amber-line: #a57a1e;
+    --th: #1a212a; --th-text: #c4ccd6; --sum: #171e26;
+    --rail: #090d11; --rail-2: #111820; --rail-text: #c9d3dc; --rail-sub: #7f8c99; --rail-line: #1c2630; --rail-on: #ffffff;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .3);
+    --wk-head: #1c2838; --wk-gray: #1a2028; --wk-hol-bg: #3a1c20; --wk-hol: #ff8a80; --wk-short: #7fb2ff; --wk-blank: #11161c; --wk-ink: #d7dde4;
+    --tip-bg: #e6eaef; --tip-text: #0d1116;
   }
   * { box-sizing: border-box; }
-  body { margin: 0; background: var(--bg); color: var(--text); font: 450 15px/1.55 'Pretendard Variable', 'Pretendard', -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Malgun Gothic', 'Noto Sans KR', sans-serif; }
-  :focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+  html, body { background: var(--bg); }
+  body { margin: 0; color: var(--text); font: 450 15px/1.55 'Pretendard Variable', 'Pretendard', -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Malgun Gothic', 'Noto Sans KR', sans-serif; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
-  /* 머리글 */
-  header { position: sticky; top: 0; z-index: 5; height: 64px; background: var(--card); border-bottom: 1px solid var(--line); padding: 0 24px; display: flex; gap: 12px; align-items: center; }
-  header h1 { font-size: 17px; font-weight: 700; margin: 0; letter-spacing: -0.01em; cursor: pointer; white-space: nowrap; }
-  header #fname { font-size: 14px; color: var(--sub); padding-left: 12px; border-left: 1px solid var(--line); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  header #fname:empty { display: none; }
-  header .actions { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+  /* ───────── 뼈대: 왼쪽 레일 + 작업면 ───────── */
+  .rail { position: fixed; inset: 0 auto 0 0; width: 264px; background: var(--rail); color: var(--rail-text); display: flex; flex-direction: column; padding: 20px 14px 16px; z-index: 5; border-right: 1px solid var(--rail-line); }
+  body.home .rail { display: none; }
+  main { margin-left: 264px; padding: 28px 36px 64px; min-height: 100dvh; }
+  body.home main { margin-left: 0; padding: 0; }
+  .brand { display: flex; gap: 11px; align-items: center; padding: 4px 8px 18px; margin-bottom: 8px; border-bottom: 1px solid var(--rail-line); cursor: pointer; }
+  .brand .mark { flex: none; width: 36px; height: 36px; border-radius: 10px; background: var(--accent); color: var(--on-accent); display: grid; place-items: center; font-weight: 800; font-size: 15px; letter-spacing: -0.03em; }
+  .brand b { display: block; color: var(--rail-on); font-size: 15px; font-weight: 700; letter-spacing: -0.01em; }
+  .brand small { display: block; color: var(--rail-sub); font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 170px; }
+  #steps { display: flex; flex-direction: column; gap: 2px; padding-top: 6px; position: relative; }
+  #steps button { font: inherit; font-size: 14.5px; font-weight: 550; display: flex; align-items: center; gap: 11px; width: 100%; text-align: left; border: 0; background: transparent; color: var(--rail-text); padding: 9px 10px; border-radius: var(--r-ctrl); cursor: pointer; position: relative; }
+  #steps button:hover { background: var(--rail-2); color: var(--rail-on); }
+  #steps button .no { flex: none; width: 24px; height: 24px; border-radius: 50%; border: 1.5px solid var(--rail-line); display: grid; place-items: center; font-size: 12px; font-weight: 700; color: var(--rail-sub); font-variant-numeric: tabular-nums; background: var(--rail); }
+  #steps button.on { background: var(--rail-2); color: var(--rail-on); font-weight: 700; }
+  #steps button.on .no { border-color: var(--accent); background: var(--accent); color: var(--on-accent); }
+  #steps button .lbl { flex: 1; }
+  #steps .count { min-width: 22px; height: 20px; padding: 0 7px; border-radius: var(--r-pill); font-size: 12px; font-weight: 700; line-height: 20px; text-align: center; font-variant-numeric: tabular-nums; }
+  #steps .count.err { background: #4a1f23; color: #ff9a92; }
+  #steps .count.warn { background: #3f3213; color: #f3c565; }
+  #steps .count.info { background: var(--rail-2); color: var(--rail-sub); }
+  #railStat { margin: 16px 6px 0; padding: 14px 12px; border-radius: var(--r-ctrl); background: var(--rail-2); font-size: 12.5px; color: var(--rail-sub); line-height: 1.55; }
+  #railStat b { display: block; color: var(--rail-on); font-size: 26px; font-weight: 750; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; line-height: 1.2; }
+  .rail-foot { margin-top: auto; display: flex; flex-direction: column; gap: 8px; padding-top: 16px; }
+  .rail-foot .row { display: flex; gap: 6px; }
+  .rail-foot .row > * { flex: 1; }
+  .rail .btn.ghost { color: var(--rail-text); border-color: var(--rail-line); background: transparent; }
+  .rail .btn.ghost:hover { background: var(--rail-2); color: var(--rail-on); }
 
-  /* 버튼 */
-  .btn { font: inherit; font-size: 14px; font-weight: 600; height: 36px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; border: 1px solid var(--line-strong); background: var(--card); color: var(--text); border-radius: var(--r-ctrl); padding: 0 14px; cursor: pointer; white-space: nowrap; transition: background .15s, border-color .15s, transform .05s; }
-  .btn:hover { background: var(--gray-bg); }
+  /* ───────── 버튼 ───────── */
+  .btn { font: inherit; font-size: 14px; font-weight: 600; height: 38px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; border: 1px solid var(--line-strong); background: var(--card); color: var(--text); border-radius: var(--r-ctrl); padding: 0 16px; cursor: pointer; white-space: nowrap; transition: background .15s, border-color .15s, color .15s, transform .06s; }
+  .btn:hover { background: var(--faint); }
   .btn:active { transform: translateY(1px); }
-  .btn.primary { background: var(--blue); border-color: var(--blue); color: #fff; }
-  .btn.primary:hover { background: var(--blue-hover); border-color: var(--blue-hover); }
-  .btn.ghost { border-color: transparent; background: transparent; color: var(--sub); }
-  .btn.ghost:hover { background: var(--gray-bg); color: var(--text); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+  .btn.primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+  .btn.ghost { background: transparent; }
+  .btn.block { width: 100%; height: 44px; font-size: 15px; }
+  .btn.small { height: 30px; padding: 0 11px; font-size: 13px; }
   .btn:disabled { opacity: .45; cursor: default; transform: none; }
   .btn[hidden] { display: none; }
-  .btn.small { height: 28px; padding: 0 10px; font-size: 13px; }
 
-  /* 뼈대: 왼쪽 단계 메뉴 + 본문 */
-  main { max-width: 1440px; margin: 0 auto; padding: 24px; }
-  .shell { display: grid; grid-template-columns: 216px minmax(0, 1fr); gap: 24px; align-items: start; }
-  .side { position: sticky; top: 88px; display: flex; flex-direction: column; gap: 2px; }
-  .side button { font: inherit; font-size: 14.5px; font-weight: 550; display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; text-align: left; border: 0; background: transparent; color: var(--sub); padding: 9px 12px; border-radius: var(--r-ctrl); cursor: pointer; }
-  .side button:hover { background: var(--faint); color: var(--text); }
-  .side button.on { background: var(--card); color: var(--blue); font-weight: 700; box-shadow: var(--shadow), 0 0 0 1px var(--line); }
-  .side .count { min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px; font-size: 12px; font-weight: 700; line-height: 20px; text-align: center; font-variant-numeric: tabular-nums; }
-  .side .count.err { background: var(--red-bg); color: var(--red); }
-  .side .count.warn { background: var(--amber-bg); color: var(--amber); }
-  .side .count.info { background: var(--faint); color: var(--sub); }
-  .side .stat { margin-top: 14px; padding: 12px; border-top: 1px solid var(--line); font-size: 13px; color: var(--sub); line-height: 1.6; }
-  .side .stat b { display: block; font-size: 22px; font-weight: 700; color: var(--text); font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
-  .content { min-width: 0; }
+  /* ───────── 단계 제목 ───────── */
+  .page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; margin: 4px 0 22px; flex-wrap: wrap; }
+  .page-head h1 { margin: 0; font-size: 30px; font-weight: 750; letter-spacing: -0.03em; line-height: 1.2; }
+  .page-head p { margin: 6px 0 0; color: var(--sub); font-size: 15px; max-width: 62ch; }
+  .kpis { display: flex; gap: 8px; flex-wrap: wrap; }
+  .kpi { background: var(--card); border: 1px solid var(--line); border-radius: var(--r-ctrl); padding: 8px 14px; min-width: 96px; }
+  .kpi span { display: block; font-size: 12px; color: var(--sub); font-weight: 600; }
+  .kpi b { font-size: 20px; font-weight: 750; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+  .kpi.err b { color: var(--red); } .kpi.warn b { color: var(--amber); } .kpi.ok b { color: var(--green); }
+  @media (prefers-reduced-motion: no-preference) {
+    .enter { animation: rise .24s cubic-bezier(.16, 1, .3, 1); }
+    @keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  }
 
-  /* 카드·제목 */
-  .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--r-card); padding: 20px 22px; margin-bottom: 16px; box-shadow: var(--shadow); }
-  .card h2 { font-size: 16px; font-weight: 700; margin: 0 0 14px; letter-spacing: -0.01em; }
+  /* ───────── 카드·알림 ───────── */
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--r-card); padding: 22px 24px; margin-bottom: 16px; box-shadow: var(--shadow); }
+  .card h2 { font-size: 16.5px; font-weight: 700; margin: 0 0 14px; letter-spacing: -0.015em; }
   .card h2 .muted { font-weight: 500; }
   .muted { color: var(--sub); }
   .src { font-size: 13px; }
-
-  /* 알림 띠: 옅은 바탕 + 왼쪽 상태색 선 */
-  .banner { padding: 10px 14px; border-radius: var(--r-ctrl); margin-bottom: 12px; font-weight: 500; border-left: 3px solid transparent; }
-  .banner.info { background: var(--blue-bg); border-left-color: var(--blue); }
-  .banner.ok { background: var(--green-bg); color: var(--green); border-left-color: var(--green); }
-  .banner.warn { background: var(--amber-bg); color: var(--amber); border-left-color: #d9a21b; }
-  .banner.err { background: var(--red-bg); color: var(--red); border-left-color: var(--red); }
+  .banner { padding: 11px 14px; border-radius: var(--r-ctrl); margin-bottom: 12px; font-weight: 500; border: 1px solid transparent; }
+  .banner.info { background: var(--accent-bg); border-color: var(--accent-ring); }
+  .banner.ok { background: var(--green-bg); color: var(--green); }
+  .banner.warn { background: var(--amber-bg); color: var(--amber); border-color: var(--amber-line); }
+  .banner.err { background: var(--red-bg); color: var(--red); border-color: var(--red-line); }
   .banner .btn { margin-left: 8px; vertical-align: middle; }
-  .badge { display: inline-block; font-size: 12px; font-weight: 700; color: var(--blue); background: var(--blue-bg); border-radius: var(--r-chip); padding: 1px 7px; margin-left: 6px; }
+  .badge { display: inline-block; font-size: 12px; font-weight: 700; color: var(--accent); background: var(--accent-bg); border-radius: var(--r-pill); padding: 1px 8px; margin-left: 6px; }
+  ul.checks { margin: 8px 0 0; padding-left: 20px; }
+  ul.checks li { margin: 4px 0; }
 
-  /* 표 */
+  /* ───────── 표·입력 ───────── */
   table { border-collapse: collapse; width: 100%; font-size: 14px; font-variant-numeric: tabular-nums; }
   th, td { border: 1px solid var(--line); padding: 6px 8px; text-align: center; vertical-align: middle; }
-  th { background: var(--gray-bg); font-weight: 600; color: #3b4454; }
+  th { background: var(--th); color: var(--th-text); font-weight: 650; }
   td.l, th.l { text-align: left; }
   .scroll { overflow-x: auto; }
-  .sumrow td { background: #f8f9fb; font-weight: 700; }
-  th.other, td.other { background: #fafbfc; }
-
-  /* 입력 */
-  input[type=number], input[type=text], input[type=date], .sel { font: inherit; font-size: 14px; height: 32px; border: 1px solid var(--line-strong); border-radius: var(--r-ctrl); padding: 0 8px; background: #fff; color: var(--text); transition: border-color .15s, box-shadow .15s; }
-  input:focus, .sel:focus { outline: none; border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-ring); }
-  input[type=number] { width: 68px; text-align: right; font-variant-numeric: tabular-nums; }
+  .sumrow td { background: var(--sum); font-weight: 700; }
+  th.other, td.other { background: var(--card-2); }
+  input[type=number], input[type=text], input[type=date], .sel { font: inherit; font-size: 14px; height: 34px; border: 1px solid var(--line-strong); border-radius: var(--r-ctrl); padding: 0 9px; background: var(--card); color: var(--text); transition: border-color .15s, box-shadow .15s; }
+  input:focus, .sel:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-ring); }
+  input[type=number] { width: 70px; text-align: right; font-variant-numeric: tabular-nums; }
   input.name { width: 100%; min-width: 140px; }
   label.chk { display: inline-flex; align-items: center; gap: 3px; margin-right: 8px; white-space: nowrap; }
-  input[type=checkbox] { width: 16px; height: 16px; accent-color: var(--blue); }
+  input[type=checkbox] { width: 16px; height: 16px; accent-color: var(--accent); }
   .changed { background: var(--amber-bg); font-weight: 700; }
   .changed s { color: var(--sub); font-weight: 450; margin-right: 4px; }
   .bad { color: var(--red); font-weight: 700; }
   .good { color: var(--green); font-weight: 700; }
 
-  /* 요약: 학년 카드 */
-  .grid-summary { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; }
-  .gcard { border: 1px solid var(--line); border-radius: var(--r-ctrl); padding: 12px 14px; background: #fff; }
-  .gcard .g { font-size: 13px; font-weight: 600; color: var(--sub); }
-  .gcard b { display: block; margin: 2px 0 4px; font-size: 26px; font-weight: 700; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
-  .gcard b small { font-size: 13px; font-weight: 500; color: var(--sub); letter-spacing: 0; margin-left: 2px; }
+  /* ───────── 요약: 학년 띠(카드 6개 대신 한 줄 띠) ───────── */
+  .grid-summary { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); border: 1px solid var(--line); border-radius: var(--r-ctrl); overflow: hidden; }
+  .gcard { padding: 14px 16px 16px; border-right: 1px solid var(--line); border-top: 3px solid var(--green); background: var(--card); }
+  .gcard:last-child { border-right: 0; }
+  .gcard.bad-card { border-top-color: var(--red); background: var(--red-bg); }
+  .gcard .g { font-size: 13px; font-weight: 650; color: var(--sub); }
+  .gcard b { display: block; margin: 4px 0 6px; font-size: 30px; font-weight: 750; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; line-height: 1.1; }
+  .gcard b small { font-size: 13px; font-weight: 500; color: var(--sub); letter-spacing: 0; margin-left: 3px; }
   .gcard .st { font-size: 13px; line-height: 1.45; word-break: keep-all; }
-  .gcard.bad-card { border-color: #f1c4c4; background: var(--red-bg); }
-  ul.checks { margin: 8px 0 0; padding-left: 20px; }
-  ul.checks li { margin: 4px 0; }
 
-  /* 학년 고르기: 붙은 버튼 묶음 */
-  .gradebtns { display: inline-flex; margin-bottom: 14px; border: 1px solid var(--line-strong); border-radius: var(--r-ctrl); overflow: hidden; background: #fff; }
-  .gradebtns .btn { height: 34px; border: 0; border-radius: 0; border-right: 1px solid var(--line); padding: 0 16px; }
-  .gradebtns .btn:last-child { border-right: 0; }
-  .gradebtns .btn.on { background: var(--blue); color: #fff; }
+  /* 학년 고르기: 알약 묶음 */
+  .gradebtns { display: inline-flex; gap: 4px; margin-bottom: 16px; padding: 4px; border: 1px solid var(--line); border-radius: var(--r-pill); background: var(--card); }
+  .gradebtns .btn { height: 32px; border: 0; border-radius: var(--r-pill); padding: 0 16px; background: transparent; }
+  .gradebtns .btn:hover { background: var(--faint); }
+  .gradebtns .btn.on { background: var(--accent); color: var(--on-accent); }
 
-  /* 시작 화면 */
-  .intro { max-width: 1100px; margin: 12px auto 0; }
-  .intro h2.lead { font-size: 26px; font-weight: 700; letter-spacing: -0.02em; margin: 0 0 6px; }
-  .intro p.lead { font-size: 16px; color: var(--sub); margin: 0 0 24px; }
-  .start { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: stretch; }
-  .start .card { display: flex; flex-direction: column; margin: 0; padding: 24px; }
-  .start .card h2 { font-size: 18px; }
-  .start .card .act { margin-top: auto; padding-top: 8px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-  .start .card.main { border-color: #c9d6f5; box-shadow: var(--shadow), 0 0 0 3px var(--blue-bg); }
-  .intro .foot { margin-top: 16px; font-size: 13px; color: var(--sub); }
+  /* ───────── 시작 화면: 좌우 분할 ───────── */
+  .home-split { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); min-height: 100dvh; }
+  .home-left { background: var(--rail); color: var(--rail-text); padding: 56px 56px 40px; display: flex; flex-direction: column; border-right: 1px solid var(--rail-line); }
+  /* 한글 제목·소개는 단어 단위로 줄바꿈("맞/춥니다" 방지) */
+  .home-left, .home-right, .page-head, .card h2, .banner { word-break: keep-all; overflow-wrap: anywhere; }
+  .home-left .brand { border: 0; padding: 0 0 48px; cursor: default; }
+  .home-left h2 { margin: 0 0 16px; color: var(--rail-on); font-size: 40px; font-weight: 750; letter-spacing: -0.035em; line-height: 1.18; max-width: 13em; }
+  .home-left p { margin: 0; font-size: 16.5px; color: var(--rail-sub); max-width: 32em; line-height: 1.6; }
+  .home-left ul { list-style: none; margin: 40px 0 0; padding: 0; border-top: 1px solid var(--rail-line); }
+  .home-left li { padding: 14px 0; border-bottom: 1px solid var(--rail-line); font-size: 15px; color: var(--rail-text); display: flex; gap: 14px; }
+  .home-left li b { color: var(--accent); font-weight: 700; min-width: 5.5em; }
+  .home-left .foot { margin-top: auto; padding-top: 32px; font-size: 13px; color: var(--rail-sub); }
+  .home-right { padding: 56px; display: flex; flex-direction: column; justify-content: center; gap: 16px; max-width: 760px; }
+  .home-right .card { margin: 0; padding: 28px; }
+  .home-right .card h2 { font-size: 20px; margin-bottom: 8px; }
+  .home-right .card.main { border: 1.5px solid var(--accent); box-shadow: var(--shadow), 0 0 0 4px var(--accent-bg); }
+  .home-right .act { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 18px; }
+  .home-right .theme-row { display: flex; justify-content: flex-end; }
 
-  /* 주별 시수: 원본 구성표 색(머리글 #E6EEF7, 월·주·일수 #F2F2F2, 휴업일 #F7E8E8+빨강, 단축 주 파랑) */
-  table.wk { table-layout: fixed; min-width: 1100px; }
-  table.wk th { background: #E6EEF7; }
-  table.wk td.gray { background: #F2F2F2; }
-  table.wk td.hol { background: #F7E8E8; color: #D40000; font-weight: 700; }
-  table.wk td.vac { background: #F2F2F2; color: var(--sub); }
-  table.wk td.blank { background: #fafafa; }
+  /* ───────── 주별 시수: 원본 구성표 색(테마별 값은 토큰) ───────── */
+  table.wk { table-layout: fixed; min-width: 1000px; }
+  table.wk th { background: var(--wk-head); }
+  table.wk td.gray { background: var(--wk-gray); }
+  table.wk td.hol { background: var(--wk-hol-bg); color: var(--wk-hol); font-weight: 700; }
+  table.wk td.vac { background: var(--wk-gray); color: var(--sub); }
+  table.wk td.blank { background: var(--wk-blank); }
   table.wk td { height: 38px; padding: 2px 4px; }
   table.wk td.notes { text-align: left; font-size: 12.5px; line-height: 1.4; padding: 4px 8px; }
-  table.wk td.notes .red { color: #D40000; font-weight: 600; }
+  table.wk td.notes .red { color: var(--wk-hol); font-weight: 600; }
   table.wk td[data-tip] { cursor: help; }
-  table.wk td.short { color: #0000FF; font-weight: 700; }
-  table.wk tr.sumrow td { background: #F2F2F2; }
-  .circ { display: inline-block; min-width: 24px; height: 24px; line-height: 21px; padding: 0 3px; border: 1.5px solid #1f2937; border-radius: 12px; font-weight: 700; }
+  table.wk td.short { color: var(--wk-short); font-weight: 700; }
+  table.wk tr.sumrow td { background: var(--wk-gray); }
+  .circ { display: inline-block; min-width: 24px; height: 24px; line-height: 21px; padding: 0 3px; border: 1.5px solid var(--wk-ink); border-radius: 12px; font-weight: 700; }
   .legend { margin: 12px 0 0; font-size: 13px; color: var(--sub); display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; }
-  .legend .sw { display: inline-block; min-width: 30px; padding: 2px 6px; margin-right: 4px; text-align: center; border: 1px solid var(--line); border-radius: var(--r-chip); background: #fff; color: var(--text); }
-  .legend .sw.hol { background: #F7E8E8; color: #D40000; font-weight: 700; }
-  .legend .sw.vac { background: #F2F2F2; color: var(--sub); }
-  .legend .sw.short { color: #0000FF; font-weight: 700; }
+  .legend .sw { display: inline-block; min-width: 30px; padding: 2px 8px; margin-right: 4px; text-align: center; border: 1px solid var(--line); border-radius: var(--r-pill); background: var(--card); color: var(--text); }
+  .legend .sw.hol { background: var(--wk-hol-bg); color: var(--wk-hol); font-weight: 700; }
+  .legend .sw.vac { background: var(--wk-gray); color: var(--sub); }
+  .legend .sw.short { color: var(--wk-short); font-weight: 700; }
   .legend .sw.changed { background: var(--amber-bg); }
   .legend .sw .circ { min-width: 20px; height: 20px; line-height: 17px; }
-  /* 즉시 뜨는 툴팁(브라우저 기본 title은 1초쯤 늦게 뜬다) */
-  .tip { position: fixed; z-index: 50; display: none; max-width: 320px; padding: 6px 10px; border-radius: var(--r-chip); background: #1f2633; color: #fff; font-size: 13px; font-weight: 500; line-height: 1.45; white-space: pre-line; pointer-events: none; box-shadow: 0 6px 18px rgba(27, 34, 48, .2); }
+  .tip { position: fixed; z-index: 50; display: none; max-width: 320px; padding: 7px 11px; border-radius: var(--r-ctrl); background: var(--tip-bg); color: var(--tip-text); font-size: 13px; font-weight: 500; line-height: 1.45; white-space: pre-line; pointer-events: none; box-shadow: 0 8px 24px rgba(0, 0, 0, .22); }
 
-  /* 좁은 화면: 단계 메뉴를 위쪽 가로 메뉴로 */
-  @media (max-width: 960px) {
-    .shell { grid-template-columns: 1fr; gap: 12px; }
-    .side { position: static; flex-direction: row; overflow-x: auto; gap: 4px; padding-bottom: 4px; }
-    .side button { width: auto; white-space: nowrap; }
-    .side .stat { display: none; }
-  }
-  @media (max-width: 800px) {
-    .start { grid-template-columns: 1fr; }
+  /* ───────── 좁은 화면: 레일을 위쪽 띠로 ───────── */
+  @media (max-width: 1000px) {
+    .rail { position: sticky; top: 0; inset: auto; width: auto; height: auto; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 14px; border-right: 0; border-bottom: 1px solid var(--rail-line); }
+    .brand { border: 0; padding: 0 8px 0 0; margin: 0; }
+    .brand small { display: none; }
+    #steps { flex-direction: row; overflow-x: auto; order: 3; width: 100%; padding: 0; }
+    #steps button { width: auto; white-space: nowrap; }
+    #railStat { display: none; }
+    .rail-foot { margin: 0 0 0 auto; flex-direction: row; padding: 0; }
+    .rail-foot .btn.block { width: auto; height: 38px; font-size: 14px; }
+    .rail-foot .row .btn:not(#themeBtn) { display: none; }
+    main { margin-left: 0; padding: 20px 16px 48px; }
+    .home-split { grid-template-columns: 1fr; }
+    .home-left, .home-right { padding: 32px 20px; }
+    .home-left h2 { font-size: 30px; }
     .grid-summary { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-    main { padding: 16px; }
-    header { padding: 0 16px; }
-    header #fname, header .btn.ghost { display: none; }
+    .gcard:nth-child(3) { border-right: 0; }
+    .page-head h1 { font-size: 24px; }
   }
   @media (prefers-reduced-motion: reduce) { .btn { transition: none; } }
 </style>
 </head>
 <body>
-<header>
-  <h1 data-act="home">교육과정 시수 자동 맞춤</h1>
-  <span id="fname"></span>
-  <div class="actions">
-    <button id="saveCfg" class="btn ghost" disabled>설정 백업</button>
-    <label class="btn ghost">설정 불러오기<input id="loadCfg" type="file" accept=".json" hidden></label>
-    <button id="download" class="btn primary" disabled>한글 파일로 내려받기</button>
+<aside class="rail">
+  <div class="brand" data-act="home"><span class="mark">시수</span><div><b>시수 자동 맞춤</b><small id="fname"></small></div></div>
+  <nav id="steps"></nav>
+  <div id="railStat"></div>
+  <div class="rail-foot">
+    <button id="download" class="btn primary block">한글 파일로 내려받기</button>
+    <div class="row"><button id="saveCfg" class="btn ghost small">설정 백업</button><label class="btn ghost small">설정 불러오기<input id="loadCfg" type="file" accept=".json" hidden></label></div>
+    <div class="row"><button id="themeBtn" class="btn ghost small" data-act="theme">테마: 자동</button></div>
   </div>
-</header>
+</aside>
 <input id="file" type="file" accept=".hwpx" hidden>
 <main id="app"></main>
 <script>
@@ -200,22 +264,39 @@ function vStart() {
   try { last = +localStorage.getItem('cu_form:lastYear') || null; } catch (e) {}
   const y0 = last || yNow;                                  // 마지막으로 작업한 학년도를 먼저
   const years = [...new Set([yNow - 1, yNow, yNow + 1, yNow + 2, y0])].sort();
-  return `<div class="intro">
-    <h2 class="lead">수업일수와 시수표를 자동으로 맞춥니다</h2>
-    <p class="lead">학사일정과 행사만 넣으면 주별 시수부터 학년별 교과 시수까지 계산해 한글 파일로 만들어 줍니다.</p>
-    <div class="start">
+  return `<div class="home-split">
+    <section class="home-left">
+      <div class="brand"><span class="mark">시수</span><div><b>시수 자동 맞춤</b><small>초등 교육과정 운영 계획</small></div></div>
+      <h2>수업일수와 시수표를 자동으로 맞춥니다</h2>
+      <p>학사일정과 행사만 넣으면 주별 시수부터 학년별 교과 시수까지 계산하고, 한글 파일로 만들어 줍니다.</p>
+      <ul>
+        <li><b>공휴일</b>관공서의 공휴일에 관한 규정대로 대체공휴일까지 계산</li>
+        <li><b>편성 기준</b>2022 개정 기준 시수, ±20% 범위, 학교자율시간 검사</li>
+        <li><b>한글 파일</b>새 문서로 만들거나, 쓰던 구성표에 숫자만 채워 넣기</li>
+      </ul>
+      <p class="foot">파일과 입력한 내용은 이 브라우저 안에서만 처리되고 어떤 서버로도 보내지 않습니다.</p>
+    </section>
+    <section class="home-right">
+      <div class="theme-row"><button class="btn ghost small" data-act="theme" id="themeBtnHome">${themeLabel()}</button></div>
       <div class="card main"><h2>새로 만들기</h2>
-        <p class="muted" style="margin-top:0">학년도를 고르면 학기·방학·공휴일·요일별 시수·식 행사와 2022 개정 교육과정 기준 시수가 기본으로 채워집니다. 고친 뒤 새 한글 파일로 내려받습니다.</p>
-        <p class="muted src" style="margin-top:0">공휴일·대체공휴일은 「관공서의 공휴일에 관한 규정」대로 계산합니다. 음력 공휴일은 2031학년도까지 들어 있습니다.</p>
+        <p class="muted" style="margin:0">학년도를 고르면 학기·방학·공휴일·요일별 시수·식 행사와 기준 시수가 기본으로 채워집니다.</p>
         <div class="act"><select id="newYear" class="sel">${years.map(y => `<option value="${y}" ${y === y0 ? 'selected' : ''}>${y}학년도${y === last ? ' (최근 작업)' : loadLocal(`cu_form:new:${y}`) ? ' (저장된 구성 있음)' : ''}</option>`).join('')}</select>
         <button class="btn primary" data-act="new">시작</button></div></div>
       <div class="card"><h2>기존 한글 파일에 채워 넣기</h2>
-        <p class="muted" style="margin-top:0">학교에서 쓰던 교육과정 구성표(.hwpx)를 열면 원본 서식은 그대로 두고 숫자만 계산해 바꿉니다.</p>
-        <p class="muted src" style="margin-top:0">.hwp 파일은 한글에서 «다른 이름으로 저장 → HWPX»로 바꾼 뒤 여세요.</p>
+        <p class="muted" style="margin:0">쓰던 교육과정 구성표(.hwpx)를 열면 서식은 그대로 두고 숫자만 계산해 바꿉니다. .hwp는 한글에서 HWPX로 저장한 뒤 여세요.</p>
         <div class="act"><label class="btn" for="file">한글 파일(.hwpx) 열기</label></div></div>
-    </div>
-    <p class="foot">파일과 입력한 내용은 이 브라우저 안에서만 처리되고 어떤 서버로도 보내지 않습니다.</p>
+    </section>
   </div>`;
+}
+
+// 테마: 자동(시스템) → 라이트 → 다크 → 자동
+function themeNow() { return document.documentElement.dataset.theme || 'auto'; }
+function themeLabel() { return '테마: ' + ({ auto: '자동', light: '라이트', dark: '다크' })[themeNow()]; }
+function cycleTheme() {
+  const next = ({ auto: 'light', light: 'dark', dark: 'auto' })[themeNow()];
+  if (next === 'auto') delete document.documentElement.dataset.theme; else document.documentElement.dataset.theme = next;
+  try { if (next === 'auto') localStorage.removeItem('cu_form:theme'); else localStorage.setItem('cu_form:theme', next); } catch (e) {}
+  document.querySelectorAll('[data-act="theme"]').forEach(b => { b.textContent = themeLabel(); });
 }
 
 function startNew(year, data) {
@@ -360,6 +441,7 @@ document.addEventListener('click', e => {
   const [act, a, b] = t.dataset.act.split(':');
   if (act === 'home') { if (S.mode && !confirm('처음 화면으로 갈까요? 입력한 학사·행사 설정은 이 브라우저에 저장돼 있습니다.')) return; Object.assign(S, { mode: null, doc: null, cfg: null, out: null }); $('#fname').textContent = ''; $('#download').disabled = $('#saveCfg').disabled = true; render(); return; }
   if (act === 'new') { startNew(+$('#newYear').value); return; }
+  if (act === 'theme') { cycleTheme(); return; }
   if (!S.cfg) return;
   const y = yearOf();
   if (act === 'tab') S.tab = a;
@@ -418,8 +500,8 @@ function addAuto(gr) {
 
 // ───────── 그리기 ─────────
 function render() {
-  $('#download').hidden = $('#saveCfg').hidden = !S.mode;        // 시작 화면에선 쓸 수 없는 버튼은 숨김
-  if (!S.mode) { $('#app').innerHTML = vStart(); return; }
+  document.body.classList.toggle('home', !S.mode);               // 시작 화면은 레일 없이 좌우 분할
+  if (!S.mode) { S.shownTab = null; $('#app').innerHTML = vStart(); return; }
   try {
     if (S.mode === 'new') {
       S.xml = Blank.buildSection(S.cfg, S.plan, S.year);      // 입력이 바뀔 때마다 문서를 다시 조립(주 수·과목 수가 바뀌어도 표가 따라감)
@@ -443,15 +525,30 @@ function render() {
     ['subjects', '교과·창체 시수', offGrades ? ['err', offGrades] : null],
   ];
   if (S.mode === 'file') tabs.push(['changes', '바뀌는 칸', ['info', S.out.edits.length]]);
+  $('#steps').innerHTML = tabs.map(([k, l, c], i) => `<button data-act="tab:${k}" class="${S.tab === k ? 'on' : ''}"><span class="no">${i + 1}</span><span class="lbl">${l}</span>${c ? `<span class="count ${c[0]}">${c[1]}</span>` : ''}</button>`).join('');
+  $('#railStat').innerHTML = `연간 수업일수<b>${S.out.res.totalDays}일</b>1학기 ${S.out.res.sems[0].days}일 · 2학기 ${S.out.res.sems[1].days}일`;
+  $('#themeBtn').textContent = themeLabel();
+  const HEAD = {
+    summary: ['요약·검사', '연간 시수와 편성 기준을 한눈에 확인합니다.'],
+    cal: ['학사일정', '학기, 방학, 휴업일을 정합니다. 공휴일과 대체공휴일은 법령대로 채워져 있습니다.'],
+    events: ['행사 시수 조정', '시업식·방학식처럼 교시가 달라지는 날을 넣습니다.'],
+    base: ['요일별 기본 시수', '행사가 없는 날 학년별로 몇 교시까지 하는지 정합니다.'],
+    weeks: ['주별 시수', '달력으로 계산한 주별 수업일수와 학년별 시수입니다.'],
+    subjects: ['교과·창체 시수', '달력 시수에 맞게 과목 시수를 배분합니다.'],
+    changes: ['바뀌는 칸', '내려받을 때 한글 파일에서 바뀌는 칸입니다.'],
+  }[S.tab];
   const restoredMsg = S.mode === 'new' ? `저장해 둔 ${S.year}학년도 구성을 이어서 열었습니다. <button class="btn small" data-act="reset">기본값으로 새로 시작</button>`
     : `이 컴퓨터에 저장해 둔 ${yearOf()}학년도 학사일정·행사 설정을 불러왔습니다. <button class="btn small" data-act="reset">파일 내용으로 되돌리기</button>`;
-  $('#app').innerHTML = `<div class="shell">
-    <nav class="side">${tabs.map(([k, l, c]) => `<button data-act="tab:${k}" class="${S.tab === k ? 'on' : ''}">${l}${c ? `<span class="count ${c[0]}">${c[1]}</span>` : ''}</button>`).join('')}
-      <div class="stat">연간 수업일수<b>${S.out.res.totalDays}일</b>1학기 ${S.out.res.sems[0].days}일 · 2학기 ${S.out.res.sems[1].days}일</div></nav>
-    <section class="content">
-      ${S.restored ? `<div class="banner info">${restoredMsg}</div>` : ''}
-      ${({ summary: vSummary, cal: vCal, events: vEvents, base: vBase, weeks: vWeeks, subjects: vSubjects, changes: vChanges })[S.tab](errs)}
-    </section></div>`;
+  const entering = S.shownTab !== S.tab;                    // 단계를 옮길 때만 떠오르는 효과(입력할 때마다 반복 금지)
+  S.shownTab = S.tab;
+  $('#app').innerHTML = `<div class="${entering ? 'enter' : ''}">
+    <div class="page-head"><div><h1>${HEAD[0]}</h1><p>${HEAD[1]}</p></div>
+      <div class="kpis"><div class="kpi"><span>연간 수업일수</span><b>${S.out.res.totalDays}일</b></div>
+        <div class="kpi ${errs.length ? 'err' : 'ok'}"><span>맞지 않는 항목</span><b>${errs.length}</b></div>
+        <div class="kpi ${warns.length ? 'warn' : 'ok'}"><span>확인할 항목</span><b>${warns.length}</b></div></div></div>
+    ${S.restored ? `<div class="banner info">${restoredMsg}</div>` : ''}
+    ${({ summary: vSummary, cal: vCal, events: vEvents, base: vBase, weeks: vWeeks, subjects: vSubjects, changes: vChanges })[S.tab](errs)}
+  </div>`;
 }
 
 function vSummary(errs) {
@@ -472,7 +569,7 @@ function vSummary(errs) {
       '«한글 파일로 내려받기»를 누르면 원본 서식 그대로 숫자만 바뀐 파일이 저장됩니다.'];
   return `
   <div class="card">
-    <h2>연간 수업일수 ${r.totalDays}일 <span class="muted" style="font-weight:500">(1학기 ${r.sems[0].days}일 · 2학기 ${r.sems[1].days}일 · 방학 ${r.vacationDays}일)</span></h2>
+    <h2>학년별 연간 시수 <span class="muted">(1학기 ${r.sems[0].days}일 · 2학기 ${r.sems[1].days}일 · 방학 ${r.vacationDays}일)</span></h2>
     <div class="grid-summary">${cards}</div>
   </div>
   <div class="card">
