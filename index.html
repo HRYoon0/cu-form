@@ -126,12 +126,15 @@ const clone = o => JSON.parse(JSON.stringify(o));
 
 // ───────── 시작 화면 ─────────
 function vStart() {
-  const now = new Date(), y0 = now.getMonth() >= 8 ? now.getFullYear() + 1 : now.getFullYear();   // 9월부터는 다음 학년도를 기본으로
-  const years = [y0 - 1, y0, y0 + 1, y0 + 2];
+  const now = new Date(), yNow = now.getMonth() >= 8 ? now.getFullYear() + 1 : now.getFullYear();   // 9월부터는 다음 학년도
+  let last = null;
+  try { last = +localStorage.getItem('cu_form:lastYear') || null; } catch (e) {}
+  const y0 = last || yNow;                                  // 마지막으로 작업한 학년도를 먼저
+  const years = [...new Set([yNow - 1, yNow, yNow + 1, yNow + 2, y0])].sort();
   return `<div class="start">
     <div class="card"><h2>새로 만들기</h2>
       <p class="muted" style="margin-top:0">학년도를 고르면 학기·방학·공휴일·요일별 시수·식 행사, 2022 개정 교육과정 기준 시수가 기본으로 채워집니다. 고친 뒤 새 한글 파일로 내려받습니다.</p>
-      <p><select id="newYear" class="sel">${years.map(y => `<option value="${y}" ${y === y0 ? 'selected' : ''}>${y}학년도${loadLocal(`cu_form:new:${y}`) ? ' (저장된 구성 있음)' : ''}</option>`).join('')}</select>
+      <p><select id="newYear" class="sel">${years.map(y => `<option value="${y}" ${y === y0 ? 'selected' : ''}>${y}학년도${y === last ? ' (최근 작업)' : loadLocal(`cu_form:new:${y}`) ? ' (저장된 구성 있음)' : ''}</option>`).join('')}</select>
       <button class="btn primary" data-act="new">시작</button></p>
       <p class="muted src" style="margin-bottom:0">공휴일·대체공휴일은 법령(관공서의 공휴일에 관한 규정 제2·3조)대로 계산해 채웁니다. 음력 공휴일은 2031학년도까지 들어 있습니다.</p></div>
     <div class="card"><h2>기존 한글 파일에 채워 넣기</h2>
@@ -143,6 +146,7 @@ function vStart() {
 
 function startNew(year, data) {
   Object.assign(S, { mode: 'new', year, name: '', zip: null, tab: 'summary', grade: 1, autoMsg: null });
+  try { localStorage.setItem('cu_form:lastYear', String(year)); } catch (e) {}
   const saved = data || loadLocal(`cu_form:new:${year}`);
   S.restored = !!saved && !data;
   S.cfg = saved ? saved.cfg : Blank.defaultCfg(year);
