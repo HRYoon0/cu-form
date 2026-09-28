@@ -58,7 +58,9 @@
   table.wk td.hol { background: #F7E8E8; color: #D40000; font-weight: 700; }
   table.wk td.vac { background: #F2F2F2; color: var(--sub); }
   table.wk td.blank { background: #fafafa; }
-  table.wk td small { display: block; font-size: 11px; font-weight: 600; line-height: 1.25; word-break: keep-all; overflow-wrap: anywhere; }
+  /* 행 높이 통일: 모든 주 행을 같은 높이로, 휴업일 이름은 한 줄(넘치면 …, 전체 이름은 마우스 올리면) */
+  table.wk td { height: 44px; padding: 2px 5px; }
+  table.wk td small { display: block; font-size: 11px; font-weight: 600; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   table.wk td.short { color: #0000FF; font-weight: 700; }
   table.wk tr.sumrow td { background: #F2F2F2; }
   .circ { display: inline-block; min-width: 24px; height: 24px; line-height: 21px; padding: 0 3px; border: 1.5px solid #1f2937; border-radius: 12px; font-weight: 700; }
@@ -462,7 +464,7 @@ function vWeeks() {
         const s = Core.iso(Core.addDays(Core.D(w.mon), k)), d = Core.D(s).getUTCDate();
         if (why === null && !w.dates.includes(s)) return '<td class="blank"></td>';
         if (why && isVac(s)) return `<td class="vac" title="${esc(why)}">${d}<small>방학</small></td>`;
-        if (why) return `<td class="hol" title="${esc(why)}">${d}<small>${esc(why)}</small></td>`;
+        if (why) return `<td class="hol" title="${esc(why)}">${d}<small>${esc(why.replace('대체공휴일', '대체'))}</small></td>`;   // 칸에선 짧게, 전체 이름은 title
         const evs = S.cfg.events.filter(e => s >= e.from && s <= (e.to || e.from));
         return evs.length
           ? `<td title="${esc(evs.map(e => `${e.name}: ${e.grades.join(',')}학년 ${e.periods}교시`).join('\n'))}"><span class="circ">${d}</span></td>`
@@ -478,7 +480,7 @@ function vWeeks() {
         ${rows}
         <tr class="sumrow"><td colspan="2">${sem.name} 소계</td>${sem.dow.map(n => `<td>${n}</td>`).join('')}<td>${sem.days}</td>${sem.hours.map(h => `<td>${Core.fmt(h)}</td>`).join('')}</tr>
       </table></div>
-      <p class="legend"><span class="sw hol">5</span>휴업일(공휴일·재량휴업) <span class="sw vac">5</span>방학 <span class="sw"><span class="circ">5</span></span>행사일(교시 조정, 마우스를 올리면 내용) <span class="sw short">23</span>평소와 시수가 다른 주${S.mode === 'file' ? ' <span class="sw changed">23</span>한글 파일과 달라지는 값(취소선이 원래 값)' : ''}</p></div>`;
+      <p class="legend"><span class="sw hol">5</span>휴업일(공휴일·재량휴업, 이름 전체는 마우스를 올리면) <span class="sw vac">5</span>방학 <span class="sw"><span class="circ">5</span></span>행사일(교시 조정, 마우스를 올리면 내용) <span class="sw short">23</span>평소와 시수가 다른 주${S.mode === 'file' ? ' <span class="sw changed">23</span>한글 파일과 달라지는 값(취소선이 원래 값)' : ''}</p></div>`;
   }).join('');
 }
 
