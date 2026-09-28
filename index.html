@@ -11,99 +11,168 @@
 <script src="skeleton.js"></script>
 <script src="blank.js"></script>
 <style>
+  /* 디자인 토큰: 차가운 회색 계열 + 강조색 하나(파랑). 빨강·노랑·초록은 상태 표시에만.
+     모양 규칙: 카드 12px, 버튼·입력 8px, 작은 표시(배지·범례) 6px */
   :root {
-    --bg: #f5f6f8; --card: #ffffff; --line: #dfe2e7; --text: #1d1f24; --sub: #5f5f66;
-    --blue: #2457d6; --blue-bg: #eaf0ff; --red: #c62828; --red-bg: #fdecec; --green: #1f7a3a; --green-bg: #e8f5ec;
-    --amber-bg: #fff6dc; --gray-bg: #f0f1f4;
+    --bg: #f4f6f9; --card: #ffffff; --line: #e3e7ee; --line-strong: #d3d9e3; --text: #1b2230; --sub: #5b6475; --faint: #eef1f5;
+    --blue: #2457d6; --blue-hover: #1d48b5; --blue-bg: #ecf1fd; --blue-ring: rgba(36, 87, 214, .18);
+    --red: #c42b2b; --red-bg: #fdeeee; --green: #1d7a3e; --green-bg: #e9f6ee; --amber: #8a5a00; --amber-bg: #fff5da; --gray-bg: #f3f5f8;
+    --r-card: 12px; --r-ctrl: 8px; --r-chip: 6px;
+    --shadow: 0 1px 2px rgba(27, 34, 48, .05), 0 1px 1px rgba(27, 34, 48, .03);
   }
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--bg); color: var(--text); font: 450 15px/1.55 'Pretendard Variable', 'Pretendard', -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Malgun Gothic', 'Noto Sans KR', sans-serif; }
-  header { background: var(--card); border-bottom: 1px solid var(--line); padding: 14px 24px; display: flex; gap: 16px; align-items: center; flex-wrap: wrap; position: sticky; top: 0; z-index: 5; }
-  header h1 { font-size: 18px; font-weight: 700; margin: 0 12px 0 0; }
-  main { max-width: 1280px; margin: 0 auto; padding: 20px 24px 60px; }
-  .btn { font: inherit; font-weight: 600; border: 1px solid var(--line); background: var(--card); color: var(--text); border-radius: 8px; padding: 7px 14px; cursor: pointer; }
+  :focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+
+  /* 머리글 */
+  header { position: sticky; top: 0; z-index: 5; height: 64px; background: var(--card); border-bottom: 1px solid var(--line); padding: 0 24px; display: flex; gap: 12px; align-items: center; }
+  header h1 { font-size: 17px; font-weight: 700; margin: 0; letter-spacing: -0.01em; cursor: pointer; white-space: nowrap; }
+  header #fname { font-size: 14px; color: var(--sub); padding-left: 12px; border-left: 1px solid var(--line); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  header #fname:empty { display: none; }
+  header .actions { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+
+  /* 버튼 */
+  .btn { font: inherit; font-size: 14px; font-weight: 600; height: 36px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; border: 1px solid var(--line-strong); background: var(--card); color: var(--text); border-radius: var(--r-ctrl); padding: 0 14px; cursor: pointer; white-space: nowrap; transition: background .15s, border-color .15s, transform .05s; }
   .btn:hover { background: var(--gray-bg); }
+  .btn:active { transform: translateY(1px); }
   .btn.primary { background: var(--blue); border-color: var(--blue); color: #fff; }
-  .btn.primary:hover { background: #1c47b3; }
-  .btn:disabled { opacity: .45; cursor: default; }
-  .btn.small { padding: 3px 9px; font-size: 13px; }
+  .btn.primary:hover { background: var(--blue-hover); border-color: var(--blue-hover); }
+  .btn.ghost { border-color: transparent; background: transparent; color: var(--sub); }
+  .btn.ghost:hover { background: var(--gray-bg); color: var(--text); }
+  .btn:disabled { opacity: .45; cursor: default; transform: none; }
+  .btn[hidden] { display: none; }
+  .btn.small { height: 28px; padding: 0 10px; font-size: 13px; }
+
+  /* 뼈대: 왼쪽 단계 메뉴 + 본문 */
+  main { max-width: 1440px; margin: 0 auto; padding: 24px; }
+  .shell { display: grid; grid-template-columns: 216px minmax(0, 1fr); gap: 24px; align-items: start; }
+  .side { position: sticky; top: 88px; display: flex; flex-direction: column; gap: 2px; }
+  .side button { font: inherit; font-size: 14.5px; font-weight: 550; display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; text-align: left; border: 0; background: transparent; color: var(--sub); padding: 9px 12px; border-radius: var(--r-ctrl); cursor: pointer; }
+  .side button:hover { background: var(--faint); color: var(--text); }
+  .side button.on { background: var(--card); color: var(--blue); font-weight: 700; box-shadow: var(--shadow), 0 0 0 1px var(--line); }
+  .side .count { min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px; font-size: 12px; font-weight: 700; line-height: 20px; text-align: center; font-variant-numeric: tabular-nums; }
+  .side .count.err { background: var(--red-bg); color: var(--red); }
+  .side .count.warn { background: var(--amber-bg); color: var(--amber); }
+  .side .count.info { background: var(--faint); color: var(--sub); }
+  .side .stat { margin-top: 14px; padding: 12px; border-top: 1px solid var(--line); font-size: 13px; color: var(--sub); line-height: 1.6; }
+  .side .stat b { display: block; font-size: 22px; font-weight: 700; color: var(--text); font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+  .content { min-width: 0; }
+
+  /* 카드·제목 */
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--r-card); padding: 20px 22px; margin-bottom: 16px; box-shadow: var(--shadow); }
+  .card h2 { font-size: 16px; font-weight: 700; margin: 0 0 14px; letter-spacing: -0.01em; }
+  .card h2 .muted { font-weight: 500; }
   .muted { color: var(--sub); }
-  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 18px 20px; margin-bottom: 16px; }
-  .card h2 { font-size: 16px; font-weight: 700; margin: 0 0 12px; }
-  .banner { padding: 10px 14px; border-radius: 8px; margin-bottom: 12px; font-weight: 500; }
-  .banner.info { background: var(--blue-bg); }
-  .banner.ok { background: var(--green-bg); color: var(--green); }
-  .banner.warn { background: var(--amber-bg); color: #7a5200; }
-  .badge { display: inline-block; font-size: 12px; font-weight: 700; color: var(--blue); background: var(--blue-bg); border-radius: 5px; padding: 0 6px; margin-left: 6px; }
   .src { font-size: 13px; }
-  .banner.err { background: var(--red-bg); color: var(--red); }
-  .tabs { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 14px; }
-  .tabs button { font: inherit; font-weight: 600; border: 0; background: transparent; color: var(--sub); padding: 8px 14px; border-radius: 8px; cursor: pointer; }
-  .tabs button.on { background: var(--card); color: var(--blue); box-shadow: 0 0 0 1px var(--line); }
-  table { border-collapse: collapse; width: 100%; font-size: 14px; }
-  th, td { border: 1px solid var(--line); padding: 5px 7px; text-align: center; vertical-align: middle; }
-  th { background: var(--gray-bg); font-weight: 600; }
+
+  /* 알림 띠: 옅은 바탕 + 왼쪽 상태색 선 */
+  .banner { padding: 10px 14px; border-radius: var(--r-ctrl); margin-bottom: 12px; font-weight: 500; border-left: 3px solid transparent; }
+  .banner.info { background: var(--blue-bg); border-left-color: var(--blue); }
+  .banner.ok { background: var(--green-bg); color: var(--green); border-left-color: var(--green); }
+  .banner.warn { background: var(--amber-bg); color: var(--amber); border-left-color: #d9a21b; }
+  .banner.err { background: var(--red-bg); color: var(--red); border-left-color: var(--red); }
+  .banner .btn { margin-left: 8px; vertical-align: middle; }
+  .badge { display: inline-block; font-size: 12px; font-weight: 700; color: var(--blue); background: var(--blue-bg); border-radius: var(--r-chip); padding: 1px 7px; margin-left: 6px; }
+
+  /* 표 */
+  table { border-collapse: collapse; width: 100%; font-size: 14px; font-variant-numeric: tabular-nums; }
+  th, td { border: 1px solid var(--line); padding: 6px 8px; text-align: center; vertical-align: middle; }
+  th { background: var(--gray-bg); font-weight: 600; color: #3b4454; }
   td.l, th.l { text-align: left; }
   .scroll { overflow-x: auto; }
-  input[type=number], input[type=text], input[type=date] { font: inherit; border: 1px solid var(--line); border-radius: 6px; padding: 3px 6px; background: #fff; color: var(--text); }
-  input[type=number] { width: 64px; text-align: right; }
+  .sumrow td { background: #f8f9fb; font-weight: 700; }
+  th.other, td.other { background: #fafbfc; }
+
+  /* 입력 */
+  input[type=number], input[type=text], input[type=date], .sel { font: inherit; font-size: 14px; height: 32px; border: 1px solid var(--line-strong); border-radius: var(--r-ctrl); padding: 0 8px; background: #fff; color: var(--text); transition: border-color .15s, box-shadow .15s; }
+  input:focus, .sel:focus { outline: none; border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-ring); }
+  input[type=number] { width: 68px; text-align: right; font-variant-numeric: tabular-nums; }
   input.name { width: 100%; min-width: 140px; }
+  label.chk { display: inline-flex; align-items: center; gap: 3px; margin-right: 8px; white-space: nowrap; }
+  input[type=checkbox] { width: 16px; height: 16px; accent-color: var(--blue); }
   .changed { background: var(--amber-bg); font-weight: 700; }
   .changed s { color: var(--sub); font-weight: 450; margin-right: 4px; }
-  /* 주별 시수: 원본 구성표 색 — 머리글 #E6EEF7, 월·주·일수 #F2F2F2, 휴업일 #F7E8E8+빨강, 단축 주 파랑 */
-  /* 칸 너비 고정: 날짜 5칸·학년 6칸이 각각 같은 너비(긴 휴업일 이름이 칸을 넓히지 않게) */
+  .bad { color: var(--red); font-weight: 700; }
+  .good { color: var(--green); font-weight: 700; }
+
+  /* 요약: 학년 카드 */
+  .grid-summary { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; }
+  .gcard { border: 1px solid var(--line); border-radius: var(--r-ctrl); padding: 12px 14px; background: #fff; }
+  .gcard .g { font-size: 13px; font-weight: 600; color: var(--sub); }
+  .gcard b { display: block; margin: 2px 0 4px; font-size: 26px; font-weight: 700; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+  .gcard b small { font-size: 13px; font-weight: 500; color: var(--sub); letter-spacing: 0; margin-left: 2px; }
+  .gcard .st { font-size: 13px; line-height: 1.45; word-break: keep-all; }
+  .gcard.bad-card { border-color: #f1c4c4; background: var(--red-bg); }
+  ul.checks { margin: 8px 0 0; padding-left: 20px; }
+  ul.checks li { margin: 4px 0; }
+
+  /* 학년 고르기: 붙은 버튼 묶음 */
+  .gradebtns { display: inline-flex; margin-bottom: 14px; border: 1px solid var(--line-strong); border-radius: var(--r-ctrl); overflow: hidden; background: #fff; }
+  .gradebtns .btn { height: 34px; border: 0; border-radius: 0; border-right: 1px solid var(--line); padding: 0 16px; }
+  .gradebtns .btn:last-child { border-right: 0; }
+  .gradebtns .btn.on { background: var(--blue); color: #fff; }
+
+  /* 시작 화면 */
+  .intro { max-width: 1100px; margin: 12px auto 0; }
+  .intro h2.lead { font-size: 26px; font-weight: 700; letter-spacing: -0.02em; margin: 0 0 6px; }
+  .intro p.lead { font-size: 16px; color: var(--sub); margin: 0 0 24px; }
+  .start { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: stretch; }
+  .start .card { display: flex; flex-direction: column; margin: 0; padding: 24px; }
+  .start .card h2 { font-size: 18px; }
+  .start .card .act { margin-top: auto; padding-top: 8px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .start .card.main { border-color: #c9d6f5; box-shadow: var(--shadow), 0 0 0 3px var(--blue-bg); }
+  .intro .foot { margin-top: 16px; font-size: 13px; color: var(--sub); }
+
+  /* 주별 시수: 원본 구성표 색(머리글 #E6EEF7, 월·주·일수 #F2F2F2, 휴업일 #F7E8E8+빨강, 단축 주 파랑) */
   table.wk { table-layout: fixed; min-width: 1100px; }
   table.wk th { background: #E6EEF7; }
   table.wk td.gray { background: #F2F2F2; }
   table.wk td.hol { background: #F7E8E8; color: #D40000; font-weight: 700; }
   table.wk td.vac { background: #F2F2F2; color: var(--sub); }
   table.wk td.blank { background: #fafafa; }
-  /* 행 높이 통일: 모든 주 행을 같은 높이로, 휴업일 이름은 한 줄(넘치면 …, 전체 이름은 마우스 올리면) */
   table.wk td { height: 38px; padding: 2px 4px; }
   table.wk td.notes { text-align: left; font-size: 12.5px; line-height: 1.4; padding: 4px 8px; }
   table.wk td.notes .red { color: #D40000; font-weight: 600; }
   table.wk td[data-tip] { cursor: help; }
-  /* 즉시 뜨는 툴팁(브라우저 기본 title은 1초쯤 늦게 뜬다) */
-  .tip { position: fixed; z-index: 50; display: none; max-width: 320px; padding: 6px 10px; border-radius: 6px; background: #1f2937; color: #fff; font-size: 13px; font-weight: 500; line-height: 1.45; white-space: pre-line; pointer-events: none; box-shadow: 0 4px 14px rgba(0,0,0,.18); }
   table.wk td.short { color: #0000FF; font-weight: 700; }
   table.wk tr.sumrow td { background: #F2F2F2; }
   .circ { display: inline-block; min-width: 24px; height: 24px; line-height: 21px; padding: 0 3px; border: 1.5px solid #1f2937; border-radius: 12px; font-weight: 700; }
-  .legend { margin: 10px 0 0; font-size: 13px; color: var(--sub); display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; }
-  .legend .sw { display: inline-block; min-width: 30px; padding: 2px 6px; margin-right: 4px; text-align: center; border: 1px solid var(--line); border-radius: 4px; background: #fff; color: var(--text); }
+  .legend { margin: 12px 0 0; font-size: 13px; color: var(--sub); display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; }
+  .legend .sw { display: inline-block; min-width: 30px; padding: 2px 6px; margin-right: 4px; text-align: center; border: 1px solid var(--line); border-radius: var(--r-chip); background: #fff; color: var(--text); }
   .legend .sw.hol { background: #F7E8E8; color: #D40000; font-weight: 700; }
   .legend .sw.vac { background: #F2F2F2; color: var(--sub); }
   .legend .sw.short { color: #0000FF; font-weight: 700; }
   .legend .sw.changed { background: var(--amber-bg); }
   .legend .sw .circ { min-width: 20px; height: 20px; line-height: 17px; }
-  .ev { box-shadow: inset 0 0 0 2px #9db4f0; }
-  .bad { color: var(--red); font-weight: 700; }
-  .good { color: var(--green); font-weight: 700; }
-  .sumrow td { background: #fafbfc; font-weight: 700; }
-  .grid-summary { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; }
-  .gcard { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
-  .gcard b { font-size: 20px; }
-  .gcard.bad-card { border-color: #f0b4b4; background: var(--red-bg); }
-  ul.checks { margin: 8px 0 0; padding-left: 20px; }
-  ul.checks li { margin: 3px 0; }
-  .gradebtns { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
-  .gradebtns .btn.on { background: var(--blue); color: #fff; border-color: var(--blue); }
-  .start { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
-  .start > p { grid-column: 1 / -1; }
-  .sel { font: inherit; border: 1px solid var(--line); border-radius: 6px; padding: 5px 8px; background: #fff; color: var(--text); }
-  th.other, td.other { background: #fafbfc; }
-  .drop { border: 2px dashed var(--line); border-radius: 12px; padding: 40px; text-align: center; background: var(--card); }
-  label.chk { display: inline-flex; align-items: center; gap: 2px; margin-right: 6px; white-space: nowrap; }
-  @media (max-width: 800px) { .start { grid-template-columns: 1fr; } .grid-summary { grid-template-columns: repeat(3, minmax(0, 1fr)); } main { padding: 16px; } header { padding: 12px 16px; } }
+  /* 즉시 뜨는 툴팁(브라우저 기본 title은 1초쯤 늦게 뜬다) */
+  .tip { position: fixed; z-index: 50; display: none; max-width: 320px; padding: 6px 10px; border-radius: var(--r-chip); background: #1f2633; color: #fff; font-size: 13px; font-weight: 500; line-height: 1.45; white-space: pre-line; pointer-events: none; box-shadow: 0 6px 18px rgba(27, 34, 48, .2); }
+
+  /* 좁은 화면: 단계 메뉴를 위쪽 가로 메뉴로 */
+  @media (max-width: 960px) {
+    .shell { grid-template-columns: 1fr; gap: 12px; }
+    .side { position: static; flex-direction: row; overflow-x: auto; gap: 4px; padding-bottom: 4px; }
+    .side button { width: auto; white-space: nowrap; }
+    .side .stat { display: none; }
+  }
+  @media (max-width: 800px) {
+    .start { grid-template-columns: 1fr; }
+    .grid-summary { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    main { padding: 16px; }
+    header { padding: 0 16px; }
+    header #fname, header .btn.ghost { display: none; }
+  }
+  @media (prefers-reduced-motion: reduce) { .btn { transition: none; } }
 </style>
 </head>
 <body>
 <header>
-  <h1 data-act="home" style="cursor:pointer">교육과정 시수 자동 맞춤</h1>
-  <span id="fname" class="muted"></span>
-  <span style="flex:1"></span>
-  <button id="saveCfg" class="btn" disabled>설정 백업(JSON)</button>
-  <label class="btn">설정 불러오기<input id="loadCfg" type="file" accept=".json" hidden></label>
-  <button id="download" class="btn primary" disabled>한글 파일로 내려받기</button>
+  <h1 data-act="home">교육과정 시수 자동 맞춤</h1>
+  <span id="fname"></span>
+  <div class="actions">
+    <button id="saveCfg" class="btn ghost" disabled>설정 백업</button>
+    <label class="btn ghost">설정 불러오기<input id="loadCfg" type="file" accept=".json" hidden></label>
+    <button id="download" class="btn primary" disabled>한글 파일로 내려받기</button>
+  </div>
 </header>
 <input id="file" type="file" accept=".hwpx" hidden>
 <main id="app"></main>
@@ -131,16 +200,21 @@ function vStart() {
   try { last = +localStorage.getItem('cu_form:lastYear') || null; } catch (e) {}
   const y0 = last || yNow;                                  // 마지막으로 작업한 학년도를 먼저
   const years = [...new Set([yNow - 1, yNow, yNow + 1, yNow + 2, y0])].sort();
-  return `<div class="start">
-    <div class="card"><h2>새로 만들기</h2>
-      <p class="muted" style="margin-top:0">학년도를 고르면 학기·방학·공휴일·요일별 시수·식 행사, 2022 개정 교육과정 기준 시수가 기본으로 채워집니다. 고친 뒤 새 한글 파일로 내려받습니다.</p>
-      <p><select id="newYear" class="sel">${years.map(y => `<option value="${y}" ${y === y0 ? 'selected' : ''}>${y}학년도${y === last ? ' (최근 작업)' : loadLocal(`cu_form:new:${y}`) ? ' (저장된 구성 있음)' : ''}</option>`).join('')}</select>
-      <button class="btn primary" data-act="new">시작</button></p>
-      <p class="muted src" style="margin-bottom:0">공휴일·대체공휴일은 법령(관공서의 공휴일에 관한 규정 제2·3조)대로 계산해 채웁니다. 음력 공휴일은 2031학년도까지 들어 있습니다.</p></div>
-    <div class="card"><h2>기존 한글 파일에 채워 넣기</h2>
-      <p class="muted" style="margin-top:0">학교에서 쓰던 교육과정 구성표(.hwpx)를 열면 원본 서식은 그대로 두고 숫자만 계산해 바꿉니다. .hwp는 한글에서 «다른 이름으로 저장 → HWPX»로 바꾼 뒤 여세요.</p>
-      <p style="margin-bottom:0"><label class="btn" for="file">한글 파일(.hwpx) 열기</label></p></div>
-    <p class="muted src">파일과 입력한 내용은 이 브라우저 안에서만 처리되고 어떤 서버로도 보내지 않습니다.</p>
+  return `<div class="intro">
+    <h2 class="lead">수업일수와 시수표를 자동으로 맞춥니다</h2>
+    <p class="lead">학사일정과 행사만 넣으면 주별 시수부터 학년별 교과 시수까지 계산해 한글 파일로 만들어 줍니다.</p>
+    <div class="start">
+      <div class="card main"><h2>새로 만들기</h2>
+        <p class="muted" style="margin-top:0">학년도를 고르면 학기·방학·공휴일·요일별 시수·식 행사와 2022 개정 교육과정 기준 시수가 기본으로 채워집니다. 고친 뒤 새 한글 파일로 내려받습니다.</p>
+        <p class="muted src" style="margin-top:0">공휴일·대체공휴일은 「관공서의 공휴일에 관한 규정」대로 계산합니다. 음력 공휴일은 2031학년도까지 들어 있습니다.</p>
+        <div class="act"><select id="newYear" class="sel">${years.map(y => `<option value="${y}" ${y === y0 ? 'selected' : ''}>${y}학년도${y === last ? ' (최근 작업)' : loadLocal(`cu_form:new:${y}`) ? ' (저장된 구성 있음)' : ''}</option>`).join('')}</select>
+        <button class="btn primary" data-act="new">시작</button></div></div>
+      <div class="card"><h2>기존 한글 파일에 채워 넣기</h2>
+        <p class="muted" style="margin-top:0">학교에서 쓰던 교육과정 구성표(.hwpx)를 열면 원본 서식은 그대로 두고 숫자만 계산해 바꿉니다.</p>
+        <p class="muted src" style="margin-top:0">.hwp 파일은 한글에서 «다른 이름으로 저장 → HWPX»로 바꾼 뒤 여세요.</p>
+        <div class="act"><label class="btn" for="file">한글 파일(.hwpx) 열기</label></div></div>
+    </div>
+    <p class="foot">파일과 입력한 내용은 이 브라우저 안에서만 처리되고 어떤 서버로도 보내지 않습니다.</p>
   </div>`;
 }
 
@@ -327,7 +401,7 @@ function autoDistribute(gi) {
   const done = next.reduce((a, v, i) => a + ((v || 0) - (rows[i].value || 0)), 0);
   rows.forEach((r, i) => setVal(gi, r.cell, next[i]));
   S.autoMsg = { gi, text: `자동 배분: ${moved.join(', ') || '바꿀 수 있는 과목 없음'}` +
-    (done !== residual ? ` — ${Math.abs(residual - done)}시간은 ±20%·감축 불가 기준 때문에 옮기지 못했습니다. 직접 조정하세요.` : '') };
+    (done !== residual ? `. ${Math.abs(residual - done)}시간은 ±20%·감축 불가 기준 때문에 옮기지 못했습니다. 직접 조정하세요.` : '') };
 }
 
 // 학교자율시간 과목 추가(새로 만들기 전용): 관련 교과(군) 아래에 기준 없는 교과 행으로 넣는다
@@ -344,6 +418,7 @@ function addAuto(gr) {
 
 // ───────── 그리기 ─────────
 function render() {
+  $('#download').hidden = $('#saveCfg').hidden = !S.mode;        // 시작 화면에선 쓸 수 없는 버튼은 숨김
   if (!S.mode) { $('#app').innerHTML = vStart(); return; }
   try {
     if (S.mode === 'new') {
@@ -360,22 +435,31 @@ function render() {
   }
   const errs = S.out.checks.filter(c => c.level === 'error');
   $('#download').textContent = S.mode === 'new' ? '한글 파일 만들기' : `한글 파일로 내려받기 (${S.out.edits.length}칸 변경)`;
-  const tabs = [['summary', '요약·검사'], ['cal', '학사일정'], ['events', '행사 시수 조정'], ['base', '요일별 기본 시수'], ['weeks', '주별 시수'], ['subjects', '교과·창체 시수']];
-  if (S.mode === 'file') tabs.push(['changes', `바뀌는 칸 (${S.out.edits.length})`]);
+  const warns = S.out.checks.filter(c => c.level === 'warn');
+  const offGrades = S.out.gradeResults.filter(g => g.calTotal !== g.curTotal).length;
+  const tabs = [
+    ['summary', '요약·검사', errs.length ? ['err', errs.length] : warns.length ? ['warn', warns.length] : null],
+    ['cal', '학사일정', null], ['events', '행사 시수 조정', null], ['base', '요일별 기본 시수', null], ['weeks', '주별 시수', null],
+    ['subjects', '교과·창체 시수', offGrades ? ['err', offGrades] : null],
+  ];
+  if (S.mode === 'file') tabs.push(['changes', '바뀌는 칸', ['info', S.out.edits.length]]);
   const restoredMsg = S.mode === 'new' ? `저장해 둔 ${S.year}학년도 구성을 이어서 열었습니다. <button class="btn small" data-act="reset">기본값으로 새로 시작</button>`
     : `이 컴퓨터에 저장해 둔 ${yearOf()}학년도 학사일정·행사 설정을 불러왔습니다. <button class="btn small" data-act="reset">파일 내용으로 되돌리기</button>`;
-  $('#app').innerHTML = `
-    ${S.restored ? `<div class="banner info">${restoredMsg}</div>` : ''}
-    <div class="tabs">${tabs.map(([k, l]) => `<button data-act="tab:${k}" class="${S.tab === k ? 'on' : ''}">${l}</button>`).join('')}</div>
-    ${({ summary: vSummary, cal: vCal, events: vEvents, base: vBase, weeks: vWeeks, subjects: vSubjects, changes: vChanges })[S.tab](errs)}`;
+  $('#app').innerHTML = `<div class="shell">
+    <nav class="side">${tabs.map(([k, l, c]) => `<button data-act="tab:${k}" class="${S.tab === k ? 'on' : ''}">${l}${c ? `<span class="count ${c[0]}">${c[1]}</span>` : ''}</button>`).join('')}
+      <div class="stat">연간 수업일수<b>${S.out.res.totalDays}일</b>1학기 ${S.out.res.sems[0].days}일 · 2학기 ${S.out.res.sems[1].days}일</div></nav>
+    <section class="content">
+      ${S.restored ? `<div class="banner info">${restoredMsg}</div>` : ''}
+      ${({ summary: vSummary, cal: vCal, events: vEvents, base: vBase, weeks: vWeeks, subjects: vSubjects, changes: vChanges })[S.tab](errs)}
+    </section></div>`;
 }
 
 function vSummary(errs) {
   const r = S.out.res, warns = S.out.checks.filter(c => c.level === 'warn');
   const cards = S.out.gradeResults.map((g, i) => {
     const d = g.calTotal - g.curTotal;
-    return `<div class="gcard ${d ? 'bad-card' : ''}"><div class="muted">${i + 1}학년</div><b>${Core.fmt(g.calTotal)}</b> <span class="muted">시간</span>
-      <div style="font-size:13px">${d ? `<span class="bad">교과표 ${Core.fmt(g.curTotal)} → ${d > 0 ? d + '시간 더 배분' : -d + '시간 줄이기'}</span>` : '<span class="good">교과표와 일치</span>'}</div></div>`;
+    return `<div class="gcard ${d ? 'bad-card' : ''}"><div class="g">${i + 1}학년</div><b>${Core.fmt(g.calTotal)}<small>시간</small></b>
+      <div class="st">${d ? `<span class="muted">교과표 ${Core.fmt(g.curTotal)}시간</span><br><span class="bad">${d > 0 ? d + '시간 더 배분' : -d + '시간 줄이기'}</span>` : '<span class="good">교과표와 일치</span>'}</div></div>`;
   }).join('');
   const steps = S.mode === 'new' ? [
     '«학사일정»에서 방학 날짜와 학교 재량휴업일을, «행사 시수 조정»에서 시업식·방학식 등의 교시를 우리 학교에 맞게 고칩니다(기본값은 흔한 예시입니다).',
