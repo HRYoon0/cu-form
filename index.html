@@ -1,0 +1,430 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>교육과정 시수 자동 맞춤</title>
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="core.js"></script>
+<style>
+  :root {
+    --bg: #f5f6f8; --card: #ffffff; --line: #dfe2e7; --text: #1d1f24; --sub: #5f5f66;
+    --blue: #2457d6; --blue-bg: #eaf0ff; --red: #c62828; --red-bg: #fdecec; --green: #1f7a3a; --green-bg: #e8f5ec;
+    --amber-bg: #fff6dc; --gray-bg: #f0f1f4;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 450 15px/1.55 'Pretendard Variable', 'Pretendard', -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Malgun Gothic', 'Noto Sans KR', sans-serif; }
+  header { background: var(--card); border-bottom: 1px solid var(--line); padding: 14px 24px; display: flex; gap: 16px; align-items: center; flex-wrap: wrap; position: sticky; top: 0; z-index: 5; }
+  header h1 { font-size: 18px; font-weight: 700; margin: 0 12px 0 0; }
+  main { max-width: 1280px; margin: 0 auto; padding: 20px 24px 60px; }
+  .btn { font: inherit; font-weight: 600; border: 1px solid var(--line); background: var(--card); color: var(--text); border-radius: 8px; padding: 7px 14px; cursor: pointer; }
+  .btn:hover { background: var(--gray-bg); }
+  .btn.primary { background: var(--blue); border-color: var(--blue); color: #fff; }
+  .btn.primary:hover { background: #1c47b3; }
+  .btn:disabled { opacity: .45; cursor: default; }
+  .btn.small { padding: 3px 9px; font-size: 13px; }
+  .muted { color: var(--sub); }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 18px 20px; margin-bottom: 16px; }
+  .card h2 { font-size: 16px; font-weight: 700; margin: 0 0 12px; }
+  .banner { padding: 10px 14px; border-radius: 8px; margin-bottom: 12px; font-weight: 500; }
+  .banner.info { background: var(--blue-bg); }
+  .banner.ok { background: var(--green-bg); color: var(--green); }
+  .banner.warn { background: var(--amber-bg); color: #7a5200; }
+  .badge { display: inline-block; font-size: 12px; font-weight: 700; color: var(--blue); background: var(--blue-bg); border-radius: 5px; padding: 0 6px; margin-left: 6px; }
+  .src { font-size: 13px; }
+  .banner.err { background: var(--red-bg); color: var(--red); }
+  .tabs { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 14px; }
+  .tabs button { font: inherit; font-weight: 600; border: 0; background: transparent; color: var(--sub); padding: 8px 14px; border-radius: 8px; cursor: pointer; }
+  .tabs button.on { background: var(--card); color: var(--blue); box-shadow: 0 0 0 1px var(--line); }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  th, td { border: 1px solid var(--line); padding: 5px 7px; text-align: center; vertical-align: middle; }
+  th { background: var(--gray-bg); font-weight: 600; }
+  td.l, th.l { text-align: left; }
+  .scroll { overflow-x: auto; }
+  input[type=number], input[type=text], input[type=date] { font: inherit; border: 1px solid var(--line); border-radius: 6px; padding: 3px 6px; background: #fff; color: var(--text); }
+  input[type=number] { width: 64px; text-align: right; }
+  input.name { width: 100%; min-width: 140px; }
+  .changed { background: var(--amber-bg); font-weight: 700; }
+  .changed s { color: var(--sub); font-weight: 450; margin-right: 4px; }
+  .off { background: var(--gray-bg); color: var(--sub); font-size: 12px; }
+  .ev { box-shadow: inset 0 0 0 2px #9db4f0; }
+  .bad { color: var(--red); font-weight: 700; }
+  .good { color: var(--green); font-weight: 700; }
+  .sumrow td { background: #fafbfc; font-weight: 700; }
+  .grid-summary { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; }
+  .gcard { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
+  .gcard b { font-size: 20px; }
+  .gcard.bad-card { border-color: #f0b4b4; background: var(--red-bg); }
+  ul.checks { margin: 8px 0 0; padding-left: 20px; }
+  ul.checks li { margin: 3px 0; }
+  .gradebtns { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
+  .gradebtns .btn.on { background: var(--blue); color: #fff; border-color: var(--blue); }
+  .drop { border: 2px dashed var(--line); border-radius: 12px; padding: 40px; text-align: center; background: var(--card); }
+  label.chk { display: inline-flex; align-items: center; gap: 2px; margin-right: 6px; white-space: nowrap; }
+  @media (max-width: 800px) { .grid-summary { grid-template-columns: repeat(3, minmax(0, 1fr)); } main { padding: 16px; } header { padding: 12px 16px; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>교육과정 시수 자동 맞춤</h1>
+  <label class="btn">한글 파일(.hwpx) 열기<input id="file" type="file" accept=".hwpx" hidden></label>
+  <span id="fname" class="muted"></span>
+  <span style="flex:1"></span>
+  <button id="saveCfg" class="btn" disabled>설정 백업(JSON)</button>
+  <label class="btn" id="loadCfgLbl">설정 불러오기<input id="loadCfg" type="file" accept=".json" hidden></label>
+  <button id="download" class="btn primary" disabled>한글 파일로 내려받기</button>
+</header>
+<main id="app">
+  <div class="drop">
+    <p style="font-size:17px;font-weight:600;margin:0 0 6px">교육과정 구성표 한글 파일(.hwpx)을 열어 주세요</p>
+    <p class="muted" style="margin:0">.hwp 파일은 한글에서 «다른 이름으로 저장 → HWPX 문서»로 바꾼 뒤 여세요. 파일은 이 컴퓨터 밖으로 전송되지 않습니다.</p>
+  </div>
+</main>
+<script>
+'use strict';
+const $ = s => document.querySelector(s);
+const WD = ['월', '화', '수', '목', '금'];
+const S = { zip: null, xml: '', name: '', doc: null, cfg: null, vals: null, tab: 'summary', grade: 1, out: null, restored: false };
+
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const md = s => { const d = Core.D(s); return `${d.getUTCMonth() + 1}.${d.getUTCDate()}.`; };
+const yearOf = () => +S.cfg.semesters[0].from.slice(0, 4);
+// 저장 이름 = 학년도 + 파일 이름(내려받을 때 붙는 '_시수반영'은 떼고) → 한 PC를 여러 학교·선생님이 써도 섞이지 않게
+const baseName = () => S.name.replace(/\.hwpx$/i, '').replace(/(_시수반영)+$/, '');
+const storeKey = () => `cu_form:cfg:${yearOf()}:${baseName()}`;
+function saveLocal() { try { localStorage.setItem(storeKey(), JSON.stringify(S.cfg)); } catch (e) {} }
+function loadLocal() { try { return JSON.parse(localStorage.getItem(storeKey()) || 'null'); } catch (e) { return null; } }
+
+// ───────── 파일 열기 ─────────
+$('#file').addEventListener('change', async e => {
+  const f = e.target.files[0];
+  if (!f) return;
+  try {
+    const zip = await JSZip.loadAsync(f, { createFolders: false });
+    const sec = zip.file('Contents/section0.xml');
+    if (!sec) throw new Error('한글 문서(HWPX)의 본문을 찾지 못했습니다.');
+    const xml = await sec.async('string');
+    const doc = Core.readDoc(xml);
+    Object.assign(S, { zip, xml, name: f.name, doc });
+    S.cfg = { ...structuredClone(doc.cfg), events: [] };
+    const saved = loadLocal();
+    S.restored = !!saved;
+    if (saved) S.cfg = saved;
+    S.vals = doc.gradeModels.map(Core.initialVals);
+    $('#fname').textContent = f.name;
+    $('#download').disabled = $('#saveCfg').disabled = false;
+    S.tab = 'summary';
+    render();
+  } catch (err) {
+    $('#app').innerHTML = `<div class="banner err">파일을 읽지 못했습니다: ${esc(err.message)}</div>`;
+    console.error(err);
+  }
+  e.target.value = '';
+});
+
+function resetToFile() {
+  S.cfg = { ...structuredClone(S.doc.cfg), events: [] };
+  try { localStorage.removeItem(storeKey()); } catch (e) {}
+  S.restored = false;
+  render();
+}
+
+// ───────── 설정 백업/불러오기 ─────────
+$('#saveCfg').addEventListener('click', () => {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(S.cfg, null, 2)], { type: 'application/json' }));
+  a.download = `시수설정_${yearOf()}_${baseName()}.json`;
+  a.click();
+});
+$('#loadCfg').addEventListener('change', async e => {
+  const f = e.target.files[0];
+  if (!f) return;
+  try {
+    const c = JSON.parse(await f.text());
+    if (!c.semesters || !c.base || !c.events) throw new Error('시수 설정 파일이 아닙니다.');
+    if (!S.doc) throw new Error('먼저 한글 파일을 여세요.');
+    S.cfg = c; saveLocal(); render();
+  } catch (err) { alert('불러오지 못했습니다: ' + err.message); }
+  e.target.value = '';
+});
+
+// ───────── 내려받기 ─────────
+$('#download').addEventListener('click', async () => {
+  const out = S.out;
+  if (!out.edits.length && !confirm('바뀌는 칸이 없습니다. 그래도 내려받을까요?')) return;
+  const errs = out.checks.filter(c => c.level === 'error');
+  if (errs.length && !confirm(`아직 맞지 않는 항목이 ${errs.length}개 있습니다.\n\n${errs.map(c => '· ' + c.msg).join('\n')}\n\n이대로 내려받을까요?`)) return;
+  const nx = Core.applyEdits(S.xml, out.edits);
+  S.zip.file('Contents/section0.xml', nx, { createFolders: false });
+  const mt = await S.zip.file('mimetype').async('string');
+  S.zip.file('mimetype', mt, { compression: 'STORE', createFolders: false });              // 규약: mimetype은 무압축·첫 항목
+  const blob = await S.zip.generateAsync({ type: 'blob', compression: 'DEFLATE', mimeType: 'application/hwp+zip' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = baseName() + '_시수반영.hwpx';
+  a.click();
+  // 내려받은 파일이 새 기준이 되도록 다시 읽는다
+  S.xml = nx; S.doc = Core.readDoc(nx); S.vals = S.doc.gradeModels.map(Core.initialVals);
+  render();
+});
+
+// ───────── 입력 반영 ─────────
+function rerender() {
+  // 다시 그려도 입력 중이던 칸의 포커스를 잃지 않게
+  setTimeout(() => {
+    const id = document.activeElement && document.activeElement.dataset.id;
+    render();
+    if (id) { const el = document.querySelector(`[data-id="${id}"]`); if (el) el.focus(); }
+  });
+}
+document.addEventListener('change', e => {
+  const t = e.target, id = t.dataset.id;
+  if (!id || !S.cfg) return;
+  const [kind, a, b, c] = id.split(':');
+  const v = t.type === 'number' ? (t.value === '' ? null : +t.value) : t.value;
+  if (kind === 'sem') S.cfg.semesters[a][b] = v;
+  else if (kind === 'hol' || kind === 'vac') { const L = kind === 'hol' ? S.cfg.holidays : S.cfg.vacations; L[a][b] = v; if (b === 'from' && (!L[a].to || L[a].to < v)) L[a].to = v; }
+  else if (kind === 'base') S.cfg.base[a][b] = v ?? 0;
+  else if (kind === 'ev') {
+    const ev = S.cfg.events[a];
+    if (b === 'grade') { const g = +c; ev.grades = t.checked ? [...new Set([...ev.grades, g])].sort() : ev.grades.filter(x => x !== g); }
+    else { ev[b] = b === 'periods' ? (v ?? 0) : v; if (b === 'from' && (!ev.to || ev.to < v)) ev.to = v; }
+  }
+  else if (kind === 'val') { const m = S.doc.gradeModels[a]; const cell = m.table.cells[b]; S.vals[a].set(cell, v); rerender(); return; }
+  saveLocal();
+  rerender();
+});
+document.addEventListener('click', e => {
+  const t = e.target.closest('[data-act]');
+  if (!t) return;
+  const [act, a, b] = t.dataset.act.split(':');
+  const y = yearOf();
+  if (act === 'tab') S.tab = a;
+  else if (act === 'grade') S.grade = +a;
+  else if (act === 'add-hol') S.cfg.holidays.push({ name: '휴업일', from: `${y}-03-02`, to: `${y}-03-02` });
+  else if (act === 'add-vac') S.cfg.vacations.push({ name: '방학', from: `${y}-07-25`, to: `${y}-08-30` });
+  else if (act === 'add-ev') S.cfg.events.push({ name: '행사', from: `${y}-03-03`, to: `${y}-03-03`, grades: [1, 2, 3, 4, 5, 6], periods: 4 });
+  else if (act === 'del') S.cfg[a].splice(+b, 1);
+  else if (act === 'sort-ev') S.cfg.events.sort((p, q) => p.from.localeCompare(q.from));
+  else if (act === 'reset') { if (confirm('저장해 둔 학사일정·행사 설정을 지우고 파일 내용으로 되돌릴까요?')) resetToFile(); return; }
+  else if (act === 'auto') { autoDistribute(+a); }
+  else return;
+  if (act.startsWith('add') || act === 'del' || act === 'sort-ev') saveLocal();
+  render();
+});
+
+// ───────── 교과 표 화면용 모델 ─────────
+function editableRows(gi) {
+  const m = S.doc.gradeModels[gi], k = 'v' + m.cur, kb = 'b' + m.cur;
+  const seen = new Set(), rows = [];
+  for (const row of m.rows) {
+    if (row.kind !== 'sub' && row.kind !== 'cha') continue;
+    const cell = row.cells[k];
+    if (!cell || seen.has(cell) || cell.r !== row.r) continue;
+    seen.add(cell);
+    const bc = row.cells[kb];
+    rows.push({ row, cell, name: row.name, kind: row.kind, base: bc && bc.r === row.r ? (S.vals[gi].get(bc) || 0) : 0, value: S.vals[gi].get(cell) });
+  }
+  return rows;
+}
+
+function autoDistribute(gi) {
+  const residual = S.out.gradeResults[gi].calTotal - S.out.gradeResults[gi].curTotal;
+  const rows = editableRows(gi);
+  const next = Core.distributeResidual(rows.map(({ name, kind, base, value }) => ({ name, kind, base, value })), residual);
+  const moved = rows.map((r, i) => (next[i] !== r.value ? `${r.name} ${r.value}→${next[i]}` : null)).filter(Boolean);
+  const done = next.reduce((a, v, i) => a + ((v || 0) - (rows[i].value || 0)), 0);
+  rows.forEach((r, i) => S.vals[gi].set(r.cell, next[i]));
+  S.autoMsg = { gi, text: `자동 배분: ${moved.join(', ') || '바꿀 수 있는 과목 없음'}` +
+    (done !== residual ? ` — ${Math.abs(residual - done)}시간은 ±20%·감축 불가 기준 때문에 옮기지 못했습니다. 직접 조정하세요.` : '') };
+}
+
+// ───────── 그리기 ─────────
+function render() {
+  if (!S.doc) return;
+  S.out = Core.buildEdits(S.doc, S.cfg, S.vals);
+  const errs = S.out.checks.filter(c => c.level === 'error');
+  $('#download').textContent = `한글 파일로 내려받기 (${S.out.edits.length}칸 변경)`;
+  const tabs = [['summary', '요약·검사'], ['cal', '학사일정'], ['events', '행사 시수 조정'], ['base', '요일별 기본 시수'], ['weeks', '주별 시수'], ['subjects', '교과·창체 시수'], ['changes', `바뀌는 칸 (${S.out.edits.length})`]];
+  $('#app').innerHTML = `
+    ${S.restored ? `<div class="banner info">이 컴퓨터에 저장해 둔 ${yearOf()}학년도 학사일정·행사 설정을 불러왔습니다. <button class="btn small" data-act="reset">파일 내용으로 되돌리기</button></div>` : ''}
+    <div class="tabs">${tabs.map(([k, l]) => `<button data-act="tab:${k}" class="${S.tab === k ? 'on' : ''}">${l}</button>`).join('')}</div>
+    ${({ summary: vSummary, cal: vCal, events: vEvents, base: vBase, weeks: vWeeks, subjects: vSubjects, changes: vChanges })[S.tab](errs)}`;
+}
+
+function vSummary(errs) {
+  const r = S.out.res, warns = S.out.checks.filter(c => c.level === 'warn');
+  const cards = S.out.gradeResults.map((g, i) => {
+    const d = g.calTotal - g.curTotal;
+    return `<div class="gcard ${d ? 'bad-card' : ''}"><div class="muted">${i + 1}학년</div><b>${Core.fmt(g.calTotal)}</b> <span class="muted">시간</span>
+      <div style="font-size:13px">${d ? `<span class="bad">교과표 ${Core.fmt(g.curTotal)} → ${d > 0 ? d + '시간 더 배분' : -d + '시간 줄이기'}</span>` : '<span class="good">교과표와 일치</span>'}</div></div>`;
+  }).join('');
+  return `
+  <div class="card">
+    <h2>연간 수업일수 ${r.totalDays}일 <span class="muted" style="font-weight:500">(1학기 ${r.sems[0].days}일 · 2학기 ${r.sems[1].days}일 · 방학 ${r.vacationDays}일)</span></h2>
+    <div class="grid-summary">${cards}</div>
+  </div>
+  <div class="card">
+    <h2>검사 결과</h2>
+    ${errs.length ? `<div class="banner err">맞지 않는 항목 ${errs.length}개</div><ul class="checks">${errs.map(c => `<li>${esc(c.msg)}</li>`).join('')}</ul>`
+      : '<div class="banner ok">모든 합계와 필수 기준이 맞습니다.</div>'}
+    ${warns.length ? `<div class="banner warn" style="margin-top:12px">확인할 항목 ${warns.length}개 (편성 기준·권장 사항)</div><ul class="checks">${warns.map(c => `<li>${esc(c.msg)}</li>`).join('')}</ul>` : ''}
+    <p class="muted" style="margin:12px 0 0">내려받으면 <b>${S.out.edits.length}칸</b>이 바뀝니다. 무엇이 바뀌는지는 «바뀌는 칸» 탭에서 확인하세요.</p>
+  </div>
+  ${vAutonomy()}
+  <div class="card">
+    <h2>사용 순서</h2>
+    <ol style="margin:0;padding-left:20px">
+      <li>«학사일정»에서 휴업일·방학을, «행사 시수 조정»에서 시업식·방학식처럼 교시가 달라지는 날을 입력합니다.</li>
+      <li>주별 시수, 월별 수업일수, 연간 요약(표 다), 학년별 연간 시수가 자동으로 계산됩니다.</li>
+      <li>«교과·창체 시수»에서 달력 시수와 교과 합계가 같아지도록 과목 시수를 고칩니다. 증감·소계·합계·창체 배당표는 자동입니다.</li>
+      <li>«한글 파일로 내려받기»를 누르면 원본 서식 그대로 숫자만 바뀐 파일이 저장됩니다.</li>
+    </ol>
+  </div>`;
+}
+
+function vCal() {
+  const listRows = (kind, L) => L.map((h, i) => `<tr>
+    <td><input class="name" type="text" data-id="${kind}:${i}:name" value="${esc(h.name)}"></td>
+    <td><input type="date" data-id="${kind}:${i}:from" value="${h.from}"></td>
+    <td><input type="date" data-id="${kind}:${i}:to" value="${h.to || h.from}"></td>
+    <td><button class="btn small" data-act="del:${kind === 'hol' ? 'holidays' : 'vacations'}:${i}">삭제</button></td></tr>`).join('');
+  return `
+  <div class="card"><h2>학기</h2>
+    <table style="max-width:560px"><tr><th>학기</th><th>시작</th><th>끝</th></tr>
+    ${S.cfg.semesters.map((s, i) => `<tr><td>${s.name}</td><td><input type="date" data-id="sem:${i}:from" value="${s.from}"></td><td><input type="date" data-id="sem:${i}:to" value="${s.to}"></td></tr>`).join('')}</table></div>
+  <div class="card"><h2>방학</h2>
+    <table style="max-width:760px"><tr><th class="l">이름</th><th>시작</th><th>끝</th><th></th></tr>${listRows('vac', S.cfg.vacations)}</table>
+    <p><button class="btn small" data-act="add-vac">+ 방학 추가</button></p></div>
+  <div class="card"><h2>휴업일 <span class="muted" style="font-weight:500">(공휴일·재량휴업일·선거일 등 수업하지 않는 평일)</span></h2>
+    <table style="max-width:760px"><tr><th class="l">이름</th><th>시작</th><th>끝</th><th></th></tr>${listRows('hol', S.cfg.holidays)}</table>
+    <p><button class="btn small" data-act="add-hol">+ 휴업일 추가</button></p>
+    <p class="muted" style="margin:0">시업식·방학식처럼 수업하는 날의 행사는 여기가 아니라 «행사 시수 조정»에 넣으세요. 이 목록은 한글 파일의 학사일정 표에 자동으로 쓰지 않으니, 바뀐 날은 한글에서 직접 고쳐 주세요.</p></div>`;
+}
+
+function vEvents() {
+  return `<div class="card"><h2>행사 시수 조정</h2>
+    <p class="muted" style="margin-top:0">그날 해당 학년이 <b>몇 교시까지</b> 하는지 적습니다. 행사가 없는 날은 «요일별 기본 시수»를 따릅니다. 기간이 겹치면 기간이 짧은 행사가 우선입니다.</p>
+    <div class="scroll"><table>
+      <tr><th class="l">행사</th><th>시작</th><th>끝</th><th>적용 학년</th><th>교시</th><th></th></tr>
+      ${S.cfg.events.map((ev, i) => `<tr>
+        <td><input class="name" type="text" data-id="ev:${i}:name" value="${esc(ev.name)}"></td>
+        <td><input type="date" data-id="ev:${i}:from" value="${ev.from}"></td>
+        <td><input type="date" data-id="ev:${i}:to" value="${ev.to || ev.from}"></td>
+        <td style="white-space:nowrap">${[1, 2, 3, 4, 5, 6].map(g => `<label class="chk"><input type="checkbox" data-id="ev:${i}:grade:${g}" ${ev.grades.includes(g) ? 'checked' : ''}>${g}</label>`).join('')}</td>
+        <td><input type="number" min="0" max="8" data-id="ev:${i}:periods" value="${ev.periods}"></td>
+        <td><button class="btn small" data-act="del:events:${i}">삭제</button></td></tr>`).join('')}
+    </table></div>
+    <p><button class="btn small" data-act="add-ev">+ 행사 추가</button> <button class="btn small" data-act="sort-ev">날짜순 정렬</button></p></div>`;
+}
+
+function vBase() {
+  return `<div class="card"><h2>요일별 기본 시수 <span class="muted" style="font-weight:500">(한글 파일의 «주간 수업시간 배당» 표에도 반영)</span></h2>
+    <table style="max-width:560px"><tr><th>학년</th>${WD.map(w => `<th>${w}</th>`).join('')}<th>계</th></tr>
+    ${[1, 2, 3, 4, 5, 6].map(g => `<tr><td>${g}</td>${S.cfg.base[g].map((p, k) => `<td><input type="number" min="0" max="8" data-id="base:${g}:${k}" value="${p}"></td>`).join('')}<td><b>${S.cfg.base[g].reduce((a, b) => a + +b, 0)}</b></td></tr>`).join('')}
+    </table></div>`;
+}
+
+function vWeeks() {
+  const old = new Map(S.out.edits.map(e => [`${e.table}|${e.why}`, e.cell.text]));
+  return S.out.res.sems.map(sem => {
+    const label = `${sem.name} 주간 시수`;
+    const cellV = (why, val) => { const o = old.get(`${label}|${why}`); return o !== undefined ? `<td class="changed" title="파일 값 ${esc(o)}"><s>${esc(o)}</s>${val}</td>` : `<td>${val}</td>`; };
+    const rows = sem.weeks.map((w, i) => {
+      const days = w.off.map((why, k) => {
+        const s = Core.iso(Core.addDays(Core.D(w.mon), k)), d = Core.D(s).getUTCDate();
+        if (why === null && !w.dates.includes(s)) return '<td class="off"></td>';
+        if (why) return `<td class="off" title="${esc(why)}">${d}<br>${esc(why.slice(0, 5))}</td>`;
+        const evs = S.cfg.events.filter(e => s >= e.from && s <= (e.to || e.from));
+        return `<td class="${evs.length ? 'ev' : ''}" title="${esc(evs.map(e => `${e.name}: ${e.grades.join(',')}학년 ${e.periods}교시`).join('\n'))}">${d}</td>`;
+      }).join('');
+      return `<tr><td>${w.month}월</td><td>${i + 1}</td>${days}${cellV(`${i + 1}주`, w.dates.length)}${w.hours.map((h, g) => cellV(`${i + 1}주 ${g + 1}학년`, h)).join('')}</tr>`;
+    }).join('');
+    return `<div class="card"><h2>${sem.name} <span class="muted" style="font-weight:500">${md(sem.from)} ~ ${md(sem.to)}</span></h2>
+      <div class="scroll"><table>
+        <tr><th rowspan="2">월</th><th rowspan="2">주</th><th colspan="5">날짜 (회색 = 휴업, 파란 테두리 = 행사)</th><th rowspan="2">수업<br>일수</th><th colspan="6">학년별 주당 시수</th></tr>
+        <tr>${WD.map(w => `<th>${w}</th>`).join('')}${[1, 2, 3, 4, 5, 6].map(g => `<th>${g}</th>`).join('')}</tr>
+        ${rows}
+        <tr class="sumrow"><td colspan="2">소계</td>${sem.dow.map(n => `<td>${n}</td>`).join('')}<td>${sem.days}</td>${sem.hours.map(h => `<td>${Core.fmt(h)}</td>`).join('')}</tr>
+      </table></div>
+      <p class="muted" style="margin:8px 0 0">노란 칸 = 한글 파일과 달라지는 값(취소선이 원래 값)</p></div>`;
+  }).join('');
+}
+
+function vSubjects() {
+  const gi = S.grade - 1, m = S.doc.gradeModels[gi], gr = S.out.gradeResults[gi];
+  const vals = S.vals[gi], k = 'v' + m.cur, kb = 'b' + m.cur, ko = 'v' + (3 - m.cur);
+  const d = gr.calTotal - gr.curTotal;
+  const year = yearOf(), otherYear = year + (m.years[3 - m.cur] - S.grade);
+  const V = c => (c && vals.get(c)) ?? '';
+  const diffTxt = n => (n ? `<span class="${n > 0 ? 'good' : 'bad'}">${n > 0 ? '+' : ''}${n}</span>` : '');
+  const sums = (kinds, key) => [...new Set(m.rows.filter(x => kinds.includes(x.kind)).map(x => x.cells[key]).filter(Boolean))].reduce((a, c) => a + (vals.get(c) || 0), 0);
+  const autoNames = new Set([1, 2].flatMap(Y => Core.autonomousSubjects(m, vals, Y).map(x => x.name)));
+  let body = '';
+  for (const row of m.rows) {
+    if (row.kind === 'sub' || row.kind === 'cha') {
+      const c = row.cells[k], bc = row.cells[kb], oc = row.cells[ko];
+      const top = c && c.r === row.r;
+      const base = bc && bc.r === row.r ? vals.get(bc) || 0 : 0;
+      const input = !c ? '' : top ? `<input type="number" min="0" data-id="val:${gi}:${m.table.cells.indexOf(c)}" value="${V(c) ?? ''}">` : '<span class="muted">↑ 병합</span>';
+      body += `<tr><td class="l">${row.kind === 'sub' ? '교과' : '창체'}</td><td class="l">${esc(row.name)}${autoNames.has(row.name) ? '<span class="badge">학교자율시간</span>' : ''}</td>
+        <td>${bc && bc.r === row.r ? V(bc) : ''}</td><td>${input}</td>
+        <td>${top && row.kind === 'sub' && vals.get(c) !== null ? diffTxt((vals.get(c) || 0) - base) : ''}</td>
+        <td class="muted">${oc && oc.r === row.r ? V(oc) : ''}</td></tr>`;
+    } else {
+      const kinds = row.kind === 'subSum' ? ['sub'] : row.kind === 'chaSum' ? ['cha'] : ['sub', 'cha'];
+      const v = sums(kinds, k), b = sums(kinds, kb);
+      body += `<tr class="sumrow"><td class="l" colspan="2">${row.kind === 'subSum' ? '교과 소계' : row.kind === 'chaSum' ? '창체 소계' : '총 수업 시간 수'}</td>
+        <td>${Core.fmt(b)}</td><td>${Core.fmt(v)}</td><td>${diffTxt(v - b)}</td><td class="muted">${Core.fmt(sums(kinds, ko))}</td></tr>`;
+    }
+  }
+  const gradeChecks = S.out.checks.filter(c => c.msg.startsWith(`${S.grade}학년 표`));
+  return `<div class="gradebtns">${[1, 2, 3, 4, 5, 6].map(g => `<button class="btn ${g === S.grade ? 'on' : ''}" data-act="grade:${g}">${g}학년</button>`).join('')}</div>
+    <div class="card"><h2>${S.grade}학년 ${year}학년도 교과·창체 시수</h2>
+    ${d ? `<div class="banner err">달력으로 계산한 연간 시수는 <b>${Core.fmt(gr.calTotal)}시간</b>인데 표 합계는 <b>${Core.fmt(gr.curTotal)}시간</b>입니다. <b>${d > 0 ? d + '시간을 더 배분' : -d + '시간을 줄여야'}</b> 합니다.
+      <button class="btn small" data-act="auto:${gi}">남은 시수 자동 배분</button></div>`
+      : `<div class="banner ok">달력 시수 ${Core.fmt(gr.calTotal)}시간과 표 합계가 같습니다.</div>`}
+    ${S.autoMsg && S.autoMsg.gi === gi ? `<div class="banner info">${esc(S.autoMsg.text)}</div>` : ''}
+    ${gradeChecks.map(c => `<div class="banner ${c.level === 'warn' ? 'warn' : 'err'}">${esc(c.msg)}</div>`).join('')}
+    <div class="scroll"><table>
+      <tr><th class="l">구분</th><th class="l">과목·활동</th><th>본교기준</th><th>본교시수 (입력)</th><th>증감</th><th>${m.years[3 - m.cur]}학년(${otherYear}년)</th></tr>
+      ${body}
+    </table></div>
+    <p class="muted" style="margin:8px 0 0">증감, 소계, 두 해 합계, 표 «연간 요약», «창체 시간 배당»은 입력값에서 자동으로 계산됩니다. 창체 증감은 파일 관례대로 첫 활동(자율) 칸에 붙습니다.</p>
+    <p class="muted" style="margin:4px 0 0">«남은 시수 자동 배분»은 기준 대비 여유 비율이 가장 큰 교과부터 1시간씩 옮깁니다. 한 해 기준의 ±20% 안에서만 움직이고, 체육·음악·미술·즐거운 생활은 기준 밑으로 줄이지 않으며, 학교자율시간 과목과 창체는 건드리지 않습니다.</p></div>`;
+}
+
+function vAutonomy() {
+  const rows = [];
+  S.out.gradeResults.forEach((g, i) => {
+    for (const a of g.autoInfo || []) {
+      if (!a.cur && !a.list.length) continue;
+      const need = a.gy >= 3 ? `${Core.fmt(a.T)}÷34 = ${(a.T / 34).toFixed(2)} → <b>${a.need}~${a.need + 1}시간</b>` : '자율 운영';
+      const ok = !a.list.length ? '<span class="muted">편성 없음</span>' : a.sum >= a.need && a.list.every(x => x.hours >= 17) && a.list.length <= 2 ? '<span class="good">기준 충족</span>' : '<span class="bad">확인 필요</span>';
+      rows.push(`<tr><td>${i + 1}학년 표</td><td>${a.gy}학년 ${a.yy}년<span class="muted"> (${a.rel})</span></td><td class="l">${a.list.map(x => `${esc(x.name)} ${x.hours}시간`).join(', ') || '-'}</td><td>${need}</td><td>${ok}</td></tr>`);
+    }
+  });
+  return `<div class="card"><h2>학교자율시간</h2>
+    <div class="scroll"><table><tr><th>표</th><th>학년·연도</th><th class="l">편성 과목·시수</th><th>기준 시수 (총 시수 ÷ 34)</th><th>판정</th></tr>${rows.join('')}</table></div>
+    <ul class="checks muted src">
+      <li>3~4·5~6학년군은 두 해 중 <b>한 학기 이상 필수</b>, 1~2학년군은 자율 운영입니다. 과목은 <b>17차시 이상</b>, 한 학년 한 학기 <b>2개 이내</b>로 운영합니다.</li>
+      <li>국가 교과가 아니면서 본교기준이 비어 있는 교과 행을 학교자율시간 과목으로 인식합니다.</li>
+      <li>이 도구가 확인하지 <b>못하는</b> 것: 한 학기 안에 몰아 편성했는지(두 학기 분산 불가), 성취기준 개발·재구조화, 평가 계획 포함, 승인 절차.</li>
+      <li>근거: 경상남도교육청 「2026학년도 경상남도 초등학교 교육과정 설계·운영 도움자료」, 「2025. 초등학교 학교자율시간 도움자료」(경남교육 2025-114)</li>
+    </ul></div>`;
+}
+
+function vChanges() {
+  if (!S.out.edits.length) return '<div class="card"><div class="banner ok">한글 파일과 달라지는 칸이 없습니다.</div></div>';
+  const groups = {};
+  for (const e of S.out.edits) (groups[e.table] = groups[e.table] || []).push(e);
+  return Object.entries(groups).map(([t, L]) => `<div class="card"><h2>${esc(t)} <span class="muted" style="font-weight:500">${L.length}칸</span></h2>
+    <table style="max-width:760px"><tr><th class="l">위치</th><th>지금</th><th>바뀔 값</th></tr>
+    ${L.map(e => `<tr><td class="l">${esc(e.why || `${e.cell.r + 1}행 ${e.cell.c + 1}열`)}</td><td class="muted">${esc(e.cell.text.split('\n')[0])}</td><td class="changed">${esc(e.text)}</td></tr>`).join('')}
+    </table></div>`).join('');
+}
+</script>
+</body>
+</html>
