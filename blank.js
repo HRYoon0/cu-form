@@ -112,7 +112,7 @@
   // ───────── HWPX 표 조립 ─────────
   let tblSeq = 0;
   const para = (t, cp = 7, pp = 20) => `<hp:p id="0" paraPrIDRef="${pp}" styleIDRef="0" pageBreak="0" columnBreak="0" merged="0"><hp:run charPrIDRef="${cp}"><hp:t>${esc(t)}</hp:t></hp:run></hp:p>`;
-  // cells: {r,c,rs,cs,t(문자열 또는 줄 배열),bf,cp,pp}. 모든 칸이 정확히 한 번씩 덮이는지 검사한다
+  // cells: {r,c,rs,cs,t(문자열 또는 줄 배열, 줄은 {t,cp}로 글자 모양 지정 가능),bf,cp,pp}. 모든 칸이 정확히 한 번씩 덮이는지 검사한다
   function table(nRows, rel, cells, repeat = 0) {
     const W = g.HWPX_SKELETON.width, sum = rel.reduce((a, b) => a + b, 0);
     const widths = rel.map(x => Math.floor((W * x) / sum));
@@ -132,7 +132,7 @@
       for (const c of cells.filter(x => x.r === r).sort((a, b) => a.c - b.c)) {
         const w = widths.slice(c.c, c.c + c.cs).reduce((a, b) => a + b, 0);
         const lines = Array.isArray(c.t) ? c.t : [c.t ?? ''];
-        rows += `<hp:tc name="" header="0" hasMargin="0" protect="0" editable="0" dirty="0" borderFillIDRef="${c.bf || 3}"><hp:subList id="" textDirection="HORIZONTAL" lineWrap="BREAK" vertAlign="CENTER" linkListIDRef="0" linkListNextIDRef="0" textWidth="0" textHeight="0" hasTextRef="0" hasNumRef="0">${lines.map(t => para(t, c.cp || 7, c.pp || 20)).join('')}</hp:subList><hp:cellAddr colAddr="${c.c}" rowAddr="${c.r}"/><hp:cellSpan colSpan="${c.cs}" rowSpan="${c.rs}"/><hp:cellSz width="${w}" height="${RH * c.rs}"/><hp:cellMargin left="141" right="141" top="85" bottom="85"/></hp:tc>`;
+        rows += `<hp:tc name="" header="0" hasMargin="0" protect="0" editable="0" dirty="0" borderFillIDRef="${c.bf || 3}"><hp:subList id="" textDirection="HORIZONTAL" lineWrap="BREAK" vertAlign="CENTER" linkListIDRef="0" linkListNextIDRef="0" textWidth="0" textHeight="0" hasTextRef="0" hasNumRef="0">${lines.map(t => (t && typeof t === 'object' ? para(t.t, t.cp, c.pp || 20) : para(t, c.cp || 7, c.pp || 20))).join('')}</hp:subList><hp:cellAddr colAddr="${c.c}" rowAddr="${c.r}"/><hp:cellSpan colSpan="${c.cs}" rowSpan="${c.rs}"/><hp:cellSz width="${w}" height="${RH * c.rs}"/><hp:cellMargin left="141" right="141" top="85" bottom="85"/></hp:tc>`;
       }
       rows += '</hp:tr>';
     }
@@ -191,17 +191,17 @@
       if (i === 0 || weeks[i - 1].month !== w.month) {
         let span = 1;
         while (i + span < weeks.length && weeks[i + span].month === w.month) span++;
-        cells.push(cell(r, 0, String(w.month), { rs: span }));
+        cells.push(cell(r, 0, String(w.month), { rs: span, bf: 6 }));
       }
-      cells.push(cell(r, 1, String(i + 1)));
+      cells.push(cell(r, 1, String(i + 1), { bf: 6 }));
       const notes = [];
       for (let k = 0; k < 5; k++) {
         const s = add(w.mon, k), why = w.off[k];
         if (why === null && !w.dates.includes(s)) { cells.push(cell(r, 2 + k, '')); continue; }
         const d = String(C().D(s).getUTCDate());
         if (why) {
-          cells.push(cell(r, 2 + k, d, { bf: 5, cp: 9 }));
-          if (!cfg.vacations.some(v => s >= v.from && s <= v.to)) notes.push(`${md(s)} ${why}`);
+          cells.push(cell(r, 2 + k, d, { bf: 5, cp: 14 }));                 // 휴업일: 분홍 칸 + 빨간 굵은 글씨
+          if (!cfg.vacations.some(v => s >= v.from && s <= v.to)) notes.push({ t: `${md(s)} ${why}`, cp: 9 });
         } else {
           const evs = cfg.events.filter(e => s >= e.from && s <= (e.to || e.from));
           cells.push(cell(r, 2 + k, d, evs.length ? { cp: 8 } : {}));
@@ -211,8 +211,9 @@
           for (const [name, parts] of byName) notes.push(`${md(s)} ${name}(${parts.join(', ')})`);
         }
       }
-      cells.push(cell(r, 7, ''), cell(r, 8, notes.length ? notes : '', { pp: 21 }), cell(r, 9, ''));
-      for (let k = 0; k < 6; k++) cells.push(cell(r, 10 + k, ''));
+      cells.push(cell(r, 7, '', { bf: 6 }), cell(r, 8, notes.length ? notes : '', { pp: 21 }), cell(r, 9, ''));
+      // 평소(요일 기본 시수 합)와 다른 주는 파란 글씨 — 원본 구성표 관례
+      for (let k = 0; k < 6; k++) cells.push(cell(r, 10 + k, '', w.hours[k] !== cfg.base[k + 1].reduce((a, b) => a + +b, 0) ? { cp: 13 } : {}));
     });
     const r = 2 + weeks.length;
     const vac = cfg.vacations.filter(v => v.from > sem.weeks[0].mon && v.from <= sem.to).map(v => `${v.name} ${dText(v.from)}~${dText(v.to, v.from.slice(0, 4) !== v.to.slice(0, 4))}(${days(v.from, v.to)}일)`);

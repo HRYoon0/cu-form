@@ -50,7 +50,23 @@
   input.name { width: 100%; min-width: 140px; }
   .changed { background: var(--amber-bg); font-weight: 700; }
   .changed s { color: var(--sub); font-weight: 450; margin-right: 4px; }
-  .off { background: var(--gray-bg); color: var(--sub); font-size: 12px; }
+  /* 주별 시수: 원본 구성표 색 — 머리글 #E6EEF7, 월·주·일수 #F2F2F2, 휴업일 #F7E8E8+빨강, 단축 주 파랑 */
+  table.wk th { background: #E6EEF7; }
+  table.wk td.gray { background: #F2F2F2; }
+  table.wk td.hol { background: #F7E8E8; color: #D40000; font-weight: 700; }
+  table.wk td.vac { background: #F2F2F2; color: var(--sub); }
+  table.wk td.blank { background: #fafafa; }
+  table.wk td small { display: block; font-size: 11px; font-weight: 600; line-height: 1.2; white-space: nowrap; }
+  table.wk td.short { color: #0000FF; font-weight: 700; }
+  table.wk tr.sumrow td { background: #F2F2F2; }
+  .circ { display: inline-block; min-width: 24px; height: 24px; line-height: 21px; padding: 0 3px; border: 1.5px solid #1f2937; border-radius: 12px; font-weight: 700; }
+  .legend { margin: 10px 0 0; font-size: 13px; color: var(--sub); display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; }
+  .legend .sw { display: inline-block; min-width: 30px; padding: 2px 6px; margin-right: 4px; text-align: center; border: 1px solid var(--line); border-radius: 4px; background: #fff; color: var(--text); }
+  .legend .sw.hol { background: #F7E8E8; color: #D40000; font-weight: 700; }
+  .legend .sw.vac { background: #F2F2F2; color: var(--sub); }
+  .legend .sw.short { color: #0000FF; font-weight: 700; }
+  .legend .sw.changed { background: var(--amber-bg); }
+  .legend .sw .circ { min-width: 20px; height: 20px; line-height: 17px; }
   .ev { box-shadow: inset 0 0 0 2px #9db4f0; }
   .bad { color: var(--red); font-weight: 700; }
   .good { color: var(--green); font-weight: 700; }
@@ -425,27 +441,41 @@ function vBase() {
 function vWeeks() {
   // 파일 모드에서만 원본과 다른 값을 표시(새로 만들기는 원본이 없다)
   const old = S.mode === 'file' ? new Map(S.out.edits.map(e => [`${e.table}|${e.why}`, e.cell.text])) : new Map();
+  const normal = [1, 2, 3, 4, 5, 6].map(g => S.cfg.base[g].reduce((a, b) => a + +b, 0));
+  const isVac = s => S.cfg.vacations.some(v => s >= v.from && s <= v.to);
   return S.out.res.sems.map(sem => {
     const label = `${sem.name} 주간 시수`;
-    const cellV = (why, val) => { const o = old.get(`${label}|${why}`); return o !== undefined ? `<td class="changed" title="파일 값 ${esc(o)}"><s>${esc(o)}</s>${val}</td>` : `<td>${val}</td>`; };
+    const cellV = (why, val, cls = '') => {
+      const o = old.get(`${label}|${why}`);
+      return o !== undefined ? `<td class="changed ${cls}" title="파일 값 ${esc(o)}"><s>${esc(o)}</s>${val}</td>` : `<td class="${cls}">${val}</td>`;
+    };
     const rows = sem.weeks.map((w, i) => {
+      let month = '';
+      if (i === 0 || sem.weeks[i - 1].month !== w.month) {
+        let span = 1;
+        while (i + span < sem.weeks.length && sem.weeks[i + span].month === w.month) span++;
+        month = `<td class="gray" rowspan="${span}">${w.month}월</td>`;
+      }
       const days = w.off.map((why, k) => {
         const s = Core.iso(Core.addDays(Core.D(w.mon), k)), d = Core.D(s).getUTCDate();
-        if (why === null && !w.dates.includes(s)) return '<td class="off"></td>';
-        if (why) return `<td class="off" title="${esc(why)}">${d}<br>${esc(why.slice(0, 5))}</td>`;
+        if (why === null && !w.dates.includes(s)) return '<td class="blank"></td>';
+        if (why && isVac(s)) return `<td class="vac" title="${esc(why)}">${d}<small>방학</small></td>`;
+        if (why) return `<td class="hol" title="${esc(why)}">${d}<small>${esc(why)}</small></td>`;
         const evs = S.cfg.events.filter(e => s >= e.from && s <= (e.to || e.from));
-        return `<td class="${evs.length ? 'ev' : ''}" title="${esc(evs.map(e => `${e.name}: ${e.grades.join(',')}학년 ${e.periods}교시`).join('\n'))}">${d}</td>`;
+        return evs.length
+          ? `<td title="${esc(evs.map(e => `${e.name}: ${e.grades.join(',')}학년 ${e.periods}교시`).join('\n'))}"><span class="circ">${d}</span></td>`
+          : `<td>${d}</td>`;
       }).join('');
-      return `<tr><td>${w.month}월</td><td>${i + 1}</td>${days}${cellV(`${i + 1}주`, w.dates.length)}${w.hours.map((h, g) => cellV(`${i + 1}주 ${g + 1}학년`, h)).join('')}</tr>`;
+      return `<tr>${month}<td class="gray">${i + 1}</td>${days}${cellV(`${i + 1}주`, w.dates.length, 'gray')}${w.hours.map((h, g) => cellV(`${i + 1}주 ${g + 1}학년`, h, h !== normal[g] ? 'short' : '')).join('')}</tr>`;
     }).join('');
     return `<div class="card"><h2>${sem.name} <span class="muted" style="font-weight:500">${md(sem.from)} ~ ${md(sem.to)}</span></h2>
-      <div class="scroll"><table>
-        <tr><th rowspan="2">월</th><th rowspan="2">주</th><th colspan="5">날짜 (회색 = 휴업, 파란 테두리 = 행사)</th><th rowspan="2">수업<br>일수</th><th colspan="6">학년별 주당 시수</th></tr>
+      <div class="scroll"><table class="wk">
+        <tr><th rowspan="2">월</th><th rowspan="2">주</th><th colspan="5">날짜</th><th rowspan="2">수업<br>일수</th><th colspan="6">학년별 주당 수업 시수</th></tr>
         <tr>${WD.map(w => `<th>${w}</th>`).join('')}${[1, 2, 3, 4, 5, 6].map(g => `<th>${g}</th>`).join('')}</tr>
         ${rows}
-        <tr class="sumrow"><td colspan="2">소계</td>${sem.dow.map(n => `<td>${n}</td>`).join('')}<td>${sem.days}</td>${sem.hours.map(h => `<td>${Core.fmt(h)}</td>`).join('')}</tr>
+        <tr class="sumrow"><td colspan="2">${sem.name} 소계</td>${sem.dow.map(n => `<td>${n}</td>`).join('')}<td>${sem.days}</td>${sem.hours.map(h => `<td>${Core.fmt(h)}</td>`).join('')}</tr>
       </table></div>
-      ${S.mode === 'file' ? '<p class="muted" style="margin:8px 0 0">노란 칸 = 한글 파일과 달라지는 값(취소선이 원래 값)</p>' : ''}</div>`;
+      <p class="legend"><span class="sw hol">5</span>휴업일(공휴일·재량휴업) <span class="sw vac">5</span>방학 <span class="sw"><span class="circ">5</span></span>행사일(교시 조정, 마우스를 올리면 내용) <span class="sw short">23</span>평소와 시수가 다른 주${S.mode === 'file' ? ' <span class="sw changed">23</span>한글 파일과 달라지는 값(취소선이 원래 값)' : ''}</p></div>`;
   }).join('');
 }
 
