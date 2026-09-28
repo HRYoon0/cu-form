@@ -51,12 +51,14 @@
   .changed { background: var(--amber-bg); font-weight: 700; }
   .changed s { color: var(--sub); font-weight: 450; margin-right: 4px; }
   /* 주별 시수: 원본 구성표 색 — 머리글 #E6EEF7, 월·주·일수 #F2F2F2, 휴업일 #F7E8E8+빨강, 단축 주 파랑 */
+  /* 칸 너비 고정: 날짜 5칸·학년 6칸이 각각 같은 너비(긴 휴업일 이름이 칸을 넓히지 않게) */
+  table.wk { table-layout: fixed; min-width: 900px; }
   table.wk th { background: #E6EEF7; }
   table.wk td.gray { background: #F2F2F2; }
   table.wk td.hol { background: #F7E8E8; color: #D40000; font-weight: 700; }
   table.wk td.vac { background: #F2F2F2; color: var(--sub); }
   table.wk td.blank { background: #fafafa; }
-  table.wk td small { display: block; font-size: 11px; font-weight: 600; line-height: 1.2; white-space: nowrap; }
+  table.wk td small { display: block; font-size: 11px; font-weight: 600; line-height: 1.25; word-break: keep-all; overflow-wrap: anywhere; }
   table.wk td.short { color: #0000FF; font-weight: 700; }
   table.wk tr.sumrow td { background: #F2F2F2; }
   .circ { display: inline-block; min-width: 24px; height: 24px; line-height: 21px; padding: 0 3px; border: 1.5px solid #1f2937; border-radius: 12px; font-weight: 700; }
@@ -470,6 +472,7 @@ function vWeeks() {
     }).join('');
     return `<div class="card"><h2>${sem.name} <span class="muted" style="font-weight:500">${md(sem.from)} ~ ${md(sem.to)}</span></h2>
       <div class="scroll"><table class="wk">
+        <colgroup><col style="width:6%"><col style="width:4.5%">${'<col style="width:10%">'.repeat(5)}<col style="width:6.5%">${'<col>'.repeat(6)}</colgroup>
         <tr><th rowspan="2">월</th><th rowspan="2">주</th><th colspan="5">날짜</th><th rowspan="2">수업<br>일수</th><th colspan="6">학년별 주당 수업 시수</th></tr>
         <tr>${WD.map(w => `<th>${w}</th>`).join('')}${[1, 2, 3, 4, 5, 6].map(g => `<th>${g}</th>`).join('')}</tr>
         ${rows}
