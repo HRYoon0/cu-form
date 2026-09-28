@@ -8,33 +8,75 @@
   const ymd = (y, m, d) => `${y}-${pad(m)}-${pad(d)}`;
   const WD = '일월화수목금토';
 
-  // ───────── 공휴일 (평일에 걸린 것만 계산에 영향) ─────────
-  // 2026학년도: 경남 학사일정 원본, 2027학년도: superkts.com 공휴일표(대체공휴일 포함) 대조
-  const H = (from, name, to) => ({ name, from, to: to || from });
-  const HOLIDAYS = {
-    2026: [H('2026-03-01', '3·1절'), H('2026-03-02', '대체공휴일(3·1절)'), H('2026-05-01', '노동절'), H('2026-05-05', '어린이날'),
-      H('2026-05-25', '대체공휴일(부처님오신날)'), H('2026-06-03', '지방선거일'), H('2026-06-06', '현충일'), H('2026-07-17', '제헌절'),
-      H('2026-08-15', '광복절'), H('2026-08-17', '대체공휴일(광복절)'), H('2026-09-24', '추석 연휴', '2026-09-26'), H('2026-10-03', '개천절'),
-      H('2026-10-05', '대체공휴일(개천절)'), H('2026-10-09', '한글날'), H('2026-12-25', '크리스마스'), H('2027-01-01', '신정'),
-      H('2027-02-06', '설 연휴', '2027-02-09')],
-    2027: [H('2027-03-01', '3·1절'), H('2027-05-03', '대체공휴일(노동절)'), H('2027-05-05', '어린이날'), H('2027-05-13', '부처님오신날'),
-      H('2027-07-17', '제헌절'), H('2027-08-16', '대체공휴일(광복절)'), H('2027-09-14', '추석 연휴', '2027-09-16'),
-      H('2027-10-04', '대체공휴일(개천절)'), H('2027-10-11', '대체공휴일(한글날)'), H('2027-12-27', '대체공휴일(크리스마스)'),
-      H('2028-01-26', '설 연휴', '2028-01-28')],
-  };
-  // 목록에 없는 해: 날짜가 고정된 공휴일만(설·추석·부처님오신날·대체공휴일은 직접 입력)
-  function fixedHolidays(y) {
-    return [[y, 3, 1, '3·1절'], [y, 5, 1, '노동절'], [y, 5, 5, '어린이날'], [y, 6, 6, '현충일'], [y, 7, 17, '제헌절'],
-      [y, 8, 15, '광복절'], [y, 10, 3, '개천절'], [y, 10, 9, '한글날'], [y, 12, 25, '크리스마스'], [y + 1, 1, 1, '신정']]
-      .map(([a, b, c, n]) => H(ymd(a, b, c), n));
-  }
-
   // ───────── 날짜 도우미 ─────────
   const dow = s => C().D(s).getUTCDay();
   const add = (s, n) => C().iso(C().addDays(C().D(s), n));
   const nextDow = (s, w) => { let x = s; while (dow(x) !== w) x = add(x, 1); return x; };   // s 이후 첫 w요일(당일 포함)
   const prevDow = (s, w) => { let x = s; while (dow(x) !== w) x = add(x, -1); return x; };
   const febEnd = y => C().iso(new Date(Date.UTC(y, 2, 0)));
+
+  // ───────── 공휴일: 법령대로 계산 ─────────
+  // 근거(국가법령정보센터 현행 원문 확인, 2026-09-28)
+  //  · 「관공서의 공휴일에 관한 규정」(대통령령 제36290호, 2026.5.1. 시행) 제2조 공휴일, 제3조 대체공휴일
+  //    - 제2조제2호가 2026.5.11.부터 「국경일에 관한 법률」의 국경일 전부 → 제헌절(7.17.) 포함
+  //  · 「국경일에 관한 법률」 제2조: 3·1절, 제헌절, 광복절, 개천절, 한글날
+  //  · 「초·중등교육법 시행령」 제47조①: 학교 휴업일에 관공서의 공휴일을 포함
+  //  · 「공직선거법」 제34조: 임기만료 선거일(①계산식, ②공휴일 전후면 다음 주 수요일)
+  // 음력 공휴일 날짜(설날 당일은 다음 해 1~2월): superkts.com 공휴일표에서 대조
+  const LUNAR = {
+    2026: { buddha: '2026-05-24', chuseok: '2026-09-25', seol: '2027-02-07' },
+    2027: { buddha: '2027-05-13', chuseok: '2027-09-15', seol: '2028-01-27' },
+    2028: { buddha: '2028-05-02', chuseok: '2028-10-03', seol: '2029-02-13' },
+    2029: { buddha: '2029-05-20', chuseok: '2029-09-22', seol: '2030-02-03' },
+    2030: { buddha: '2030-05-09', chuseok: '2030-09-12', seol: '2031-01-23' },
+    2031: { buddha: '2031-05-28', chuseok: '2031-10-01', seol: '2032-02-11' },
+  };
+  // 임기만료 선거일(제2조제10호의2). 2030 지방선거는 6.5.이 계산값이지만 다음 날이 현충일이라 제34조②로 6.12.
+  const ELECTIONS = [['2026-06-03', '지방선거일'], ['2028-04-12', '국회의원선거일'], ['2030-03-27', '대통령선거일'], ['2030-06-12', '지방선거일']];
+  const H = (from, name, to) => ({ name, from, to: to || from });
+
+  // 학년도(3.1.~다음 해 2월 말)의 공휴일 + 대체공휴일. type = 규정 제2조 호수(10의2 = 10.5)
+  function holidaysFor(year) {
+    const from = ymd(year, 3, 1), to = febEnd(year + 1), L = LUNAR[year], base = [];
+    // 제헌절(제2호 개정)은 2026.5.11., 노동절(제6호)은 2026.5.1. 시행 — 그 전 날짜엔 넣지 않는다
+    const SINCE = { '제헌절': '2026-05-11', '노동절': '2026-05-01' };
+    const P = (date, name, type) => { if (!(SINCE[name] && date < SINCE[name])) base.push({ date, name, type }); };
+    for (const y of [year, year + 1]) {
+      P(ymd(y, 3, 1), '3·1절', 2); P(ymd(y, 7, 17), '제헌절', 2); P(ymd(y, 8, 15), '광복절', 2); P(ymd(y, 10, 3), '개천절', 2); P(ymd(y, 10, 9), '한글날', 2);
+      P(ymd(y, 1, 1), '신정', 3); P(ymd(y, 5, 1), '노동절', 6); P(ymd(y, 5, 5), '어린이날', 7); P(ymd(y, 6, 6), '현충일', 8); P(ymd(y, 12, 25), '기독탄신일', 10);
+    }
+    if (L) {
+      [-1, 0, 1].forEach(k => P(add(L.seol, k), '설날', 4));
+      P(L.buddha, '부처님 오신 날', 5);
+      [-1, 0, 1].forEach(k => P(add(L.chuseok, k), '추석', 9));
+    }
+    ELECTIONS.forEach(([d, n]) => P(d, n, 10.5));
+    const subs = new Map();
+    const isHol = d => dow(d) === 0 || base.some(h => h.date === d) || subs.has(d);   // 제2조 공휴일(일요일 포함) — 토요일은 비공휴일
+    const Q1 = [2, 5, 6, 7, 10], Q2 = [4, 9], Q3 = [2, 4, 5, 6, 7, 9, 10];
+    for (const date of [...new Set(base.map(h => h.date))].sort()) {
+      const hs = base.filter(h => h.date === date && h.type >= 2 && h.type <= 10);   // "제2호부터 제10호까지"(10의2 제외)
+      const w = dow(date);
+      let q = [];
+      if (w === 6 || w === 0) q = hs.filter(h => Q1.includes(h.type) || (w === 0 && Q2.includes(h.type)));        // ①1·2
+      else if (hs.length >= 2) q = hs.filter(h => Q3.includes(h.type)).slice(0, hs.length - 1);                   // ①3: 평일에 겹치면 잃은 날 수만큼
+      for (const h of q) {
+        let d = add(date, 1);
+        while (dow(d) === 6 || isHol(d)) d = add(d, 1);          // 첫 비공휴일(②겹치면 그다음, ③토요일이면 그다음)
+        subs.set(d, `대체공휴일(${h.name})`);
+      }
+    }
+    // 목록으로: 설·추석은 3일 묶음, 나머지는 하루씩
+    const out = [];
+    for (const key of ['설날', '추석']) {
+      const ds = base.filter(h => h.name === key).map(h => h.date).sort();
+      for (let i = 0; i < ds.length; i += 3) out.push(H(ds[i], key === '설날' ? '설 연휴' : '추석 연휴', ds[i + 2]));
+    }
+    base.filter(h => h.name !== '설날' && h.name !== '추석').forEach(h => out.push(H(h.date, h.name)));
+    subs.forEach((n, d) => out.push(H(d, n)));
+    return out.filter(h => h.to >= from && h.from <= to).sort((x, y) => x.from.localeCompare(y.from));
+  }
+  const hasLunar = y => !!LUNAR[y];
 
   // ───────── 2022 개정 교육과정 기준 ─────────
   // 교과(군): nat=두 해 기준 시수, noReduce=기준 밑으로 못 줄임(체육·예술, 경남 권장: 즐거운 생활)
@@ -82,7 +124,7 @@
 
   // ───────── 학사 기본값 ─────────
   function defaultCfg(year) {
-    const holidays = (HOLIDAYS[year] || fixedHolidays(year)).map(h => ({ ...h }));
+    const holidays = holidaysFor(year);
     const sumFrom = nextDow(ymd(year, 7, 21), 6), sumTo = prevDow(ymd(year, 8, 31), 0);
     const winFrom = ymd(year, 12, 25), winTo = nextDow(ymd(year + 1, 1, 18), 0);
     const endFrom = nextDow(ymd(year + 1, 2, 10), 6), endTo = febEnd(year + 1);
@@ -345,7 +387,7 @@
     return zip.generateAsync({ type: 'blob', compression: 'DEFLATE', mimeType: 'application/hwp+zip' });
   }
 
-  const api = { HOLIDAYS, BANDS, bandOf, defaultCfg, defaultPlan, buildSection, packHwpx, rangeOf };
+  const api = { holidaysFor, hasLunar, LUNAR, ELECTIONS, BANDS, bandOf, defaultCfg, defaultPlan, buildSection, packHwpx, rangeOf };
   if (typeof module !== 'undefined') module.exports = api;
   g.Blank = api;
 })(typeof window !== 'undefined' ? window : globalThis);
