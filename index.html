@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>교육과정 시수 자동 맞춤</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
 <script>try { var t = localStorage.getItem('cu_form:theme'); if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; } catch (e) {}</script>
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
@@ -59,7 +60,7 @@
   :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
   /* ───────── 뼈대: 왼쪽 레일 + 작업면 ───────── */
-  .rail { position: fixed; inset: 0 auto 0 0; width: 264px; background: var(--rail); color: var(--rail-text); display: flex; flex-direction: column; padding: 20px 14px 16px; z-index: 5; border-right: 1px solid var(--rail-line); }
+  .rail { position: fixed; inset: 0 auto 0 0; width: 264px; background: var(--rail); color: var(--rail-text); display: flex; flex-direction: column; padding: 20px 14px 16px; z-index: 5; border-right: 1px solid var(--rail-line); overflow-y: auto; }
   body.home .rail { display: none; }
   main { margin-left: 264px; padding: 28px 36px 64px; min-height: 100dvh; }
   body.home main { margin-left: 0; padding: 0; }
@@ -83,6 +84,9 @@
   .rail-foot { margin-top: auto; display: flex; flex-direction: column; gap: 8px; padding-top: 16px; }
   .rail-foot .row { display: flex; gap: 6px; }
   .rail-foot .row > * { flex: 1; }
+  .credit { margin: 6px 4px 0; font-size: 12px; line-height: 1.6; color: var(--rail-sub); }
+  .credit a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
+  .credit a:hover { color: var(--rail-on); }
   .rail .btn.ghost { color: var(--rail-text); border-color: var(--rail-line); background: transparent; }
   .rail .btn.ghost:hover { background: var(--rail-2); color: var(--rail-on); }
 
@@ -222,7 +226,7 @@
     #railStat { display: none; }
     .rail-foot { margin: 0 0 0 auto; flex-direction: row; padding: 0; }
     .rail-foot .btn.block { width: auto; height: 38px; font-size: 14px; }
-    .rail-foot .row .btn:not(#themeBtn) { display: none; }
+    .rail-foot .row .btn:not(#themeBtn), .rail-foot .credit { display: none; }
     main { margin-left: 0; padding: 20px 16px 48px; }
     .home-split { grid-template-columns: 1fr; }
     .home-left, .home-right { padding: 32px 20px; }
@@ -243,6 +247,7 @@
     <button id="download" class="btn primary block">한글 파일로 내려받기</button>
     <div class="row"><button id="saveCfg" class="btn ghost small">설정 백업</button><label class="btn ghost small">설정 불러오기<input id="loadCfg" type="file" accept=".json" hidden></label></div>
     <div class="row"><button id="themeBtn" class="btn ghost small" data-act="theme">테마: 자동</button></div>
+    <p class="credit">제작: 양산 황산초등학교 윤희류<br>문의: <a href="mailto:tmdsh2000@naver.com">tmdsh2000@naver.com</a></p>
   </div>
 </aside>
 <input id="file" type="file" accept=".hwpx" hidden>
@@ -281,7 +286,7 @@ function vStart() {
         <li><b>편성 기준</b>2022 개정 기준 시수, ±20% 범위, 학교자율시간 검사</li>
         <li><b>한글 파일</b>새 문서로 만들거나, 쓰던 구성표에 숫자만 채워 넣기</li>
       </ul>
-      <p class="foot">파일과 입력한 내용은 이 브라우저 안에서만 처리되고 어떤 서버로도 보내지 않습니다.</p>
+      <p class="foot">파일과 입력한 내용은 이 브라우저 안에서만 처리되고 어떤 서버로도 보내지 않습니다.<br>제작: 양산 황산초등학교 윤희류 · 문의: <a href="mailto:tmdsh2000@naver.com" style="color:inherit">tmdsh2000@naver.com</a></p>
     </section>
     <section class="home-right">
       <div class="theme-row"><button class="btn ghost small" data-act="theme" id="themeBtnHome">${themeLabel()}</button></div>
