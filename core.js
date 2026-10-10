@@ -463,8 +463,11 @@
     const rowBy = (re) => { for (let r = 0; r < st.rows; r++) for (const k of [2, 3]) { const c = st.at(r, k); if (c && re.test(c.flat)) return r; } return -1; };
     const rSem1 = rowBy(/^1학기$/), rSem2 = rowBy(/^2학기$/), rTot = rowBy(/^시수합계$/);
     const rPrev = rowBy(/^\d{4}학년도이수/), rCum = rowBy(/~.*이수/), rMin = rowBy(/최소/);
+    const summary = { prev: [], cum: [], min: [] };     // 화면 주별 시수 탭의 요약 표용
     for (let gi = 0; gi < 6; gi++) {
       const k = 4 + gi;
+      const mk = rMin >= 0 && st.at(rMin, k);
+      summary.min[gi] = mk ? num(mk.flat) : null;
       if (rSem1 >= 0) put('연간 요약', st.at(rSem1, k), fmt(res.sems[0].hours[gi]));
       if (rSem2 >= 0) put('연간 요약', st.at(rSem2, k), fmt(res.sems[1].hours[gi]));
       if (rTot >= 0) put('연간 요약', st.at(rTot, k), fmt(res.gradeTotals[gi]));
@@ -472,10 +475,12 @@
       if (pc && pc.c === k && pc.flat) {
         const prev = gradeResults[gi].otherTotal;
         put('연간 요약', pc, fmt(prev));
+        summary.prev[gi] = prev;
         const cc = rCum >= 0 && st.at(rCum, k), mc = rMin >= 0 && st.at(rMin, k);
         if (cc && mc) {
           const cum = prev + res.gradeTotals[gi], min = num(mc.flat);
           put('연간 요약', cc, withDiff(cum, min));
+          summary.cum[gi] = cum;
           if (cum < min) checks.push({ level: 'error', msg: `${gi}~${gi + 1}학년군 두 해 합계 ${fmt(cum)}시간이 최소 ${fmt(min)}시간에 못 미칩니다.` });
         }
       }
@@ -518,7 +523,7 @@
       }
     }
 
-    return { res, edits, checks, gradeResults };
+    return { res, edits, checks, gradeResults, summary };
   }
 
   // 남는(모자란) 시수를 어느 과목에 배분할지 정하는 규칙

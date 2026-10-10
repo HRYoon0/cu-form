@@ -8,10 +8,11 @@
 <script>try { var t = localStorage.getItem('cu_form:theme'); if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; } catch (e) {}</script>
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<!-- 로컬 스크립트를 고치면 ?v= 값을 바꾼다(브라우저가 옛 파일을 캐시로 써서 index.html과 어긋나지 않게) -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-<script src="core.js"></script>
-<script src="skeleton.js"></script>
-<script src="blank.js"></script>
+<script src="core.js?v=20261010b"></script>
+<script src="skeleton.js?v=20261010b"></script>
+<script src="blank.js?v=20261010b"></script>
 <style>
   /* ───────── 디자인 토큰 ─────────
      강조색은 청록 하나(주별 표의 파랑=단축 주, 빨강=휴업일과 겹치지 않게). 빨강·노랑·초록은 상태에만.
@@ -699,7 +700,27 @@ function vWeeks() {
         <tr class="sumrow"><td colspan="2">${sem.name} 소계</td>${sem.dow.map(n => `<td>${n}</td>`).join('')}<td>${sem.days}</td><td class="notes">${esc(vac)}</td>${sem.hours.map(h => `<td>${Core.fmt(h)}</td>`).join('')}</tr>
       </table></div>
       <p class="legend"><span class="sw hol">5</span>휴업일 <span class="sw vac">5</span>방학 <span class="sw"><span class="circ">5</span></span>행사일 <span class="sw short">23</span>평소와 시수가 다른 주${S.mode === 'file' ? ' <span class="sw changed">23</span>한글 파일과 달라지는 값(취소선이 원래 값)' : ''} · 날짜·시수 칸에 마우스를 올리면 내용이 바로 보입니다. 주요 교육활동 칸을 누르면 그 주의 행사(교시)를 바로 고칠 수 있습니다.</p></div>`;
-  }).join('');
+  }).join('') + weekSummary();
+}
+
+// 주별 시수 끝의 연간 요약 표(한글 파일의 «연간수업일수·학년별 수업 시수» 표와 같은 모양)
+function weekSummary() {
+  const { res, summary: sm } = S.out, y = yearOf(), G = [0, 1, 2, 3, 4, 5];
+  const tds = (f, cls = '') => G.map(g => `<td class="${cls}">${f(g)}</td>`).join('');
+  const show = v => (v == null ? '' : Core.fmt(v));
+  return `<div class="card"><h2>연간 수업일수·학년별 수업 시수</h2>
+    <div class="scroll"><table class="wk">
+      <colgroup><col style="width:10%"><col style="width:8%"><col style="width:11%"><col style="width:11%">${'<col>'.repeat(6)}</colgroup>
+      <tr><th colspan="2">연간수업일수</th><th colspan="2">학년별 수업 시수</th>${G.map(g => `<th>${g + 1}학년</th>`).join('')}</tr>
+      <tr><th rowspan="2">1학기</th><td rowspan="2">${res.sems[0].days}</td><th rowspan="4">${y}학년도<br>시수</th><th>1학기</th>${tds(g => Core.fmt(res.sems[0].hours[g]))}</tr>
+      <tr><th rowspan="2">2학기</th>${G.map(g => `<td rowspan="2">${Core.fmt(res.sems[1].hours[g])}</td>`).join('')}</tr>
+      <tr><th rowspan="2">2학기</th><td rowspan="2">${res.sems[1].days}</td></tr>
+      <tr class="sumrow"><th>시수 합계</th>${tds(g => `<b>${Core.fmt(res.gradeTotals[g])}</b>`)}</tr>
+      <tr><th rowspan="3">합계</th><td rowspan="3"><b>${res.totalDays}</b></td><th colspan="2">${y - 1}학년도 이수 시수</th>${tds(g => show(sm.prev[g]))}</tr>
+      <tr><th colspan="2">${y - 1}~${y}학년도 이수 시수 합계</th>${tds(g => (sm.cum[g] == null ? '' : Core.withDiff(sm.cum[g], sm.min[g])), '')}</tr>
+      <tr><th colspan="2">학년군별 총 최소 수업 시수</th>${[0, 2, 4].map(g => `<td colspan="2">${show(sm.min[g])}</td>`).join('')}</tr>
+    </table></div>
+    <p class="legend">${y - 1}학년도 이수 시수는 «교과·창체 시수» 탭의 지난해 합계이고, 두 해 합계 괄호 안은 최소 시수보다 많은 시간입니다.</p></div>`;
 }
 
 // 주별 표 안에서 펼치는 편집 행: 이 주에 걸친 행사(교시가 바뀌어 시수에 반영)와 메모(문구만)
