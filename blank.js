@@ -193,7 +193,8 @@
 
   // 주요 교육활동 문구: 휴업일(방학 제외, 빨강)과 행사. 화면 주별 표와 한글 파일이 같이 쓴다
   // 같은 날 같은 이름의 행사(학년별로 교시만 다른 것)는 한 줄로: 여름방학 개학식(3,4학년 4교시, 5,6학년 5교시)
-  function weekNotes(cfg, w) {
+  // 사용자가 고친 주는 cfg.weekNotes[월요일]에 줄바꿈 글로 저장. auto=true면 고친 글을 무시하고 자동 문구만
+  function weekNotes(cfg, w, auto) {
     const notes = [];
     for (let k = 0; k < 5; k++) {
       const s = add(w.mon, k), why = w.off[k];
@@ -204,7 +205,11 @@
         (byName.get(e.name) || byName.set(e.name, []).get(e.name)).push(`${gradesText(e.grades)} ${e.periods}교시`);
       for (const [name, parts] of byName) notes.push({ t: `${md(s)} ${name}(${parts.join(', ')})`, holiday: false });
     }
-    return notes;
+    const own = auto ? undefined : (cfg.weekNotes || {})[w.mon];
+    if (own === undefined) return notes;
+    // 고친 글에서도 자동 휴업일 줄과 똑같은 줄은 빨강 유지
+    const red = new Set(notes.filter(n => n.holiday).map(n => n.t));
+    return own.split('\n').map(t => t.trim()).filter(Boolean).map(t => ({ t, holiday: red.has(t) }));
   }
 
   // ───────── 표별 조립 ─────────
