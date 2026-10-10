@@ -192,14 +192,13 @@
   table.wk td { height: 38px; padding: 2px 4px; }
   table.wk td.notes { text-align: left; font-size: 12.5px; line-height: 1.4; padding: 4px 8px; }
   table.wk td.notes .red { color: var(--wk-hol); font-weight: 600; }
-  table.wk td.notes.edit { cursor: text; position: relative; }
-  table.wk td.notes.edit:hover:not(:focus-within) { box-shadow: inset 0 0 0 1.5px var(--accent); }
-  table.wk td.notes.own { background: var(--accent-bg); }
-  table.wk td.notes textarea { display: block; width: 100%; margin: 0; padding: 2px 4px; border: 1.5px solid var(--accent); border-radius: 4px;
+  table.wk td.notes.edit { cursor: pointer; }
+  table.wk td.notes.edit:hover, table.wk td.notes.open { box-shadow: inset 0 0 0 1.5px var(--accent); }
+  table.wk tr.wk-edit > td { height: auto; padding: 14px 16px; text-align: left; background: var(--card-2); }
+  .wk-edit h3 { margin: 0 0 8px; font-size: 14px; }
+  .wk-edit table { width: auto; margin-bottom: 8px; }
+  .wk-edit textarea { display: block; width: 100%; max-width: 640px; margin-top: 4px; padding: 6px 8px; border: 1px solid var(--line-strong); border-radius: 6px;
     background: var(--card); color: var(--text); font: inherit; line-height: 1.4; resize: vertical; }
-  .note-reset { position: absolute; top: 3px; right: 3px; padding: 0 6px; font-size: 11px; line-height: 18px; border: 1px solid var(--line);
-    border-radius: var(--r-pill); background: var(--card); color: var(--sub); cursor: pointer; opacity: 0; }
-  table.wk td.notes.own:hover .note-reset, .note-reset:focus { opacity: 1; }
   table.wk td[data-tip] { cursor: help; }
   table.wk td.short { color: var(--wk-short); font-weight: 700; }
   table.wk tr.sumrow td { background: var(--wk-gray); }
@@ -413,32 +412,6 @@ function rerender() {
     if (id) { const el = document.querySelector(`[data-id="${id}"]`); if (el) el.focus(); }
   });
 }
-// 주요 교육활동 칸 고치기: 누르면 입력칸, 벗어나면 저장(Esc는 취소). 자동 문구와 같으면 저장하지 않음
-function editNote(td, mon) {
-  if (td.querySelector('textarea')) return;
-  const w = S.out.res.sems.flatMap(s => s.weeks).find(x => x.mon === mon);
-  const ta = document.createElement('textarea');
-  ta.value = Blank.weekNotes(S.cfg, w).map(n => n.t).join('\n');
-  ta.rows = Math.max(2, ta.value.split('\n').length + 1);
-  td.removeAttribute('data-tip');
-  td.replaceChildren(ta);
-  ta.focus();
-  let done = false;
-  const finish = save => {
-    if (done) return;
-    done = true;
-    if (save) {
-      const v = ta.value.split('\n').map(s => s.trim()).filter(Boolean).join('\n');
-      S.cfg.weekNotes = S.cfg.weekNotes || {};
-      if (v === Blank.weekNotes(S.cfg, w, true).map(n => n.t).join('\n')) delete S.cfg.weekNotes[mon];
-      else S.cfg.weekNotes[mon] = v;
-      saveLocal();
-    }
-    render();
-  };
-  ta.addEventListener('blur', () => finish(true));
-  ta.addEventListener('keydown', e => { if (e.key === 'Escape') finish(false); });
-}
 // 교과 표 칸 값 바꾸기: 파일 모드는 칸 값에, 새로 만들기는 구성(plan)에 적는다(문서를 매번 다시 조립하므로)
 function setVal(gi, cell, v) {
   if (S.mode === 'file') { S.vals[gi].set(cell, v); return; }
@@ -464,6 +437,7 @@ document.addEventListener('change', e => {
     if (b === 'grade') { const g = +c; ev.grades = t.checked ? [...new Set([...ev.grades, g])].sort() : ev.grades.filter(x => x !== g); }
     else { ev[b] = b === 'periods' ? (v ?? 0) : v; if (b === 'from' && (!ev.to || ev.to < v)) ev.to = v; }
   }
+  else if (kind === 'memo') { S.cfg.weekNotes = S.cfg.weekNotes || {}; const m = v.split('\n').map(x => x.trim()).filter(Boolean).join('\n'); if (m) S.cfg.weekNotes[a] = m; else delete S.cfg.weekNotes[a]; }
   else if (kind === 'val') setVal(+a, S.doc.gradeModels[a].table.cells[b], v);
   else return;
   if (kind !== 'val' || S.mode === 'new') saveLocal();
@@ -473,7 +447,7 @@ document.addEventListener('click', e => {
   const t = e.target.closest('[data-act]');
   if (!t) return;
   const [act, a, b] = t.dataset.act.split(':');
-  if (act === 'home') { if (S.mode && !confirm('처음 화면으로 갈까요? 입력한 학사·행사 설정은 이 브라우저에 저장돼 있습니다.')) return; Object.assign(S, { mode: null, doc: null, cfg: null, out: null }); $('#fname').textContent = ''; $('#download').disabled = $('#saveCfg').disabled = true; render(); return; }
+  if (act === 'home') { if (S.mode && !confirm('처음 화면으로 갈까요? 입력한 학사·행사 설정은 이 브라우저에 저장돼 있습니다.')) return; Object.assign(S, { mode: null, doc: null, cfg: null, out: null, week: null }); $('#fname').textContent = ''; $('#download').disabled = $('#saveCfg').disabled = true; render(); return; }
   if (act === 'new') { startNew(+$('#newYear').value); return; }
   if (act === 'theme') { cycleTheme(); return; }
   if (!S.cfg) return;
@@ -485,8 +459,8 @@ document.addEventListener('click', e => {
   else if (act === 'add-ev') S.cfg.events.push({ name: '행사', from: `${y}-03-03`, to: `${y}-03-03`, grades: [1, 2, 3, 4, 5, 6], periods: 4 });
   else if (act === 'del') S.cfg[a].splice(+b, 1);
   else if (act === 'sort-ev') S.cfg.events.sort((p, q) => p.from.localeCompare(q.from));
-  else if (act === 'note-reset') { delete S.cfg.weekNotes[a]; saveLocal(); render(); return; }
-  else if (act === 'note-edit') { editNote(t, a); return; }
+  else if (act === 'week') S.week = S.week === a ? null : a;
+  else if (act === 'add-ev-week') { const w = weekOf(a), d = w.dates[0] || w.mon; S.cfg.events.push({ name: '행사', from: d, to: d, grades: [1, 2, 3, 4, 5, 6], periods: 4 }); }
   else if (act === 'reset') { if (confirm(S.mode === 'new' ? '저장해 둔 구성을 지우고 기본값으로 새로 시작할까요?' : '저장해 둔 학사일정·행사 설정을 지우고 파일 내용으로 되돌릴까요?')) resetData(); return; }
   else if (act === 'auto') autoDistribute(+a);
   else if (act === 'add-auto') { if (!addAuto(+a)) return; }
@@ -645,18 +619,22 @@ function vCal() {
     <p class="muted" style="margin:0">${holNote}</p></div>`;
 }
 
+const EV_HEAD = '<tr><th class="l">행사</th><th>시작</th><th>끝</th><th>적용 학년</th><th>교시</th><th></th></tr>';
+const evRow = (ev, i) => `<tr>
+  <td><input class="name" type="text" data-id="ev:${i}:name" value="${esc(ev.name)}"></td>
+  <td><input type="date" data-id="ev:${i}:from" value="${ev.from}"></td>
+  <td><input type="date" data-id="ev:${i}:to" value="${ev.to || ev.from}"></td>
+  <td style="white-space:nowrap">${[1, 2, 3, 4, 5, 6].map(g => `<label class="chk"><input type="checkbox" data-id="ev:${i}:grade:${g}" ${ev.grades.includes(g) ? 'checked' : ''}>${g}</label>`).join('')}</td>
+  <td><input type="number" min="0" max="8" data-id="ev:${i}:periods" value="${ev.periods}"></td>
+  <td><button class="btn small" data-act="del:events:${i}">삭제</button></td></tr>`;
+const weekOf = mon => S.out.res.sems.flatMap(s => s.weeks).find(w => w.mon === mon);
+
 function vEvents() {
   return `<div class="card"><h2>행사 시수 조정</h2>
     <p class="muted" style="margin-top:0">그날 해당 학년이 <b>몇 교시까지</b> 하는지 적습니다. 행사가 없는 날은 «요일별 기본 시수»를 따릅니다. 기간이 겹치면 기간이 짧은 행사가 우선입니다.${S.mode === 'new' ? ' 기본으로 넣어 둔 식 행사의 교시는 흔한 예시이니 우리 학교에 맞게 고치세요.' : ''}</p>
     <div class="scroll"><table>
-      <tr><th class="l">행사</th><th>시작</th><th>끝</th><th>적용 학년</th><th>교시</th><th></th></tr>
-      ${S.cfg.events.map((ev, i) => `<tr>
-        <td><input class="name" type="text" data-id="ev:${i}:name" value="${esc(ev.name)}"></td>
-        <td><input type="date" data-id="ev:${i}:from" value="${ev.from}"></td>
-        <td><input type="date" data-id="ev:${i}:to" value="${ev.to || ev.from}"></td>
-        <td style="white-space:nowrap">${[1, 2, 3, 4, 5, 6].map(g => `<label class="chk"><input type="checkbox" data-id="ev:${i}:grade:${g}" ${ev.grades.includes(g) ? 'checked' : ''}>${g}</label>`).join('')}</td>
-        <td><input type="number" min="0" max="8" data-id="ev:${i}:periods" value="${ev.periods}"></td>
-        <td><button class="btn small" data-act="del:events:${i}">삭제</button></td></tr>`).join('')}
+      ${EV_HEAD}
+      ${S.cfg.events.map(evRow).join('')}
     </table></div>
     <p><button class="btn small" data-act="add-ev">+ 행사 추가</button> <button class="btn small" data-act="sort-ev">날짜순 정렬</button></p></div>`;
 }
@@ -685,6 +663,7 @@ function vWeeks() {
       if (i === 0 || sem.weeks[i - 1].month !== w.month) {
         let span = 1;
         while (i + span < sem.weeks.length && sem.weeks[i + span].month === w.month) span++;
+        if (sem.weeks.slice(i, i + span).some(x => x.mon === S.week)) span++;   // 펼친 편집 행도 월 칸에 포함
         month = `<td class="gray" rowspan="${span}">${w.month}월</td>`;
       }
       const days = w.off.map((why, k) => {
@@ -698,13 +677,10 @@ function vWeeks() {
           : `<td>${d}</td>`;
       }).join('');
       let notes = Blank.weekNotes(S.cfg, w).map(n => `<div class="${n.holiday ? 'red' : ''}">${esc(n.t)}</div>`).join('');
-      // 새로 만들기에서만 고칠 수 있다(기존 파일 채우기는 이 열을 한글 파일에 쓰지 않음)
-      if (S.mode === 'new') {
-        const own = (S.cfg.weekNotes || {})[w.mon] !== undefined;
-        notes = `<td class="notes edit${own ? ' own' : ''}" data-act="note-edit:${w.mon}" data-tip="${own ? '직접 고친 문구입니다. 눌러서 고치기' : '눌러서 고치기'}">${notes}${own ? `<button class="note-reset" data-act="note-reset:${w.mon}" data-tip="자동 문구로 되돌리기">자동</button>` : ''}</td>`;
-      } else notes = `<td class="notes">${notes}</td>`;
+      const open = S.week === w.mon;
+      notes = `<td class="notes edit${open ? ' open' : ''}" data-act="week:${w.mon}" data-tip="${open ? '눌러서 닫기' : '눌러서 이 주의 행사 고치기'}">${notes}</td>`;
       const hours = w.hours.map((h, g) => cellV(`${i + 1}주 ${g + 1}학년`, h, h !== normal[g] ? 'short' : '', h !== normal[g] ? `${g + 1}학년: 평소 ${normal[g]}시간 → 이번 주 ${h}시간` : '')).join('');
-      return `<tr>${month}<td class="gray">${i + 1}</td>${days}${cellV(`${i + 1}주`, w.dates.length, 'gray')}${notes}${hours}</tr>`;
+      return `<tr>${month}<td class="gray">${i + 1}</td>${days}${cellV(`${i + 1}주`, w.dates.length, 'gray')}${notes}${hours}</tr>${S.week === w.mon ? weekEditor(w, i) : ''}`;
     }).join('');
     const vac = S.cfg.vacations.filter(v => v.from > sem.weeks[0].mon && v.from <= sem.to).map(v => `${v.name} ${md(v.from)}~${md(v.to)}`).join(', ');
     return `<div class="card"><h2>${sem.name} <span class="muted" style="font-weight:500">${md(sem.from)} ~ ${md(sem.to)}</span></h2>
@@ -715,8 +691,21 @@ function vWeeks() {
         ${rows}
         <tr class="sumrow"><td colspan="2">${sem.name} 소계</td>${sem.dow.map(n => `<td>${n}</td>`).join('')}<td>${sem.days}</td><td class="notes">${esc(vac)}</td>${sem.hours.map(h => `<td>${Core.fmt(h)}</td>`).join('')}</tr>
       </table></div>
-      <p class="legend"><span class="sw hol">5</span>휴업일 <span class="sw vac">5</span>방학 <span class="sw"><span class="circ">5</span></span>행사일 <span class="sw short">23</span>평소와 시수가 다른 주${S.mode === 'file' ? ' <span class="sw changed">23</span>한글 파일과 달라지는 값(취소선이 원래 값)' : ''} · 날짜·시수 칸에 마우스를 올리면 내용이 바로 보입니다.${S.mode === 'new' ? ' 주요 교육활동 칸은 눌러서 고칠 수 있습니다(고친 칸은 옅은 청록, «자동»을 누르면 되돌림).' : ''}</p></div>`;
+      <p class="legend"><span class="sw hol">5</span>휴업일 <span class="sw vac">5</span>방학 <span class="sw"><span class="circ">5</span></span>행사일 <span class="sw short">23</span>평소와 시수가 다른 주${S.mode === 'file' ? ' <span class="sw changed">23</span>한글 파일과 달라지는 값(취소선이 원래 값)' : ''} · 날짜·시수 칸에 마우스를 올리면 내용이 바로 보입니다. 주요 교육활동 칸을 누르면 그 주의 행사(교시)를 바로 고칠 수 있습니다.</p></div>`;
   }).join('');
+}
+
+// 주별 표 안에서 펼치는 편집 행: 이 주에 걸친 행사(교시가 바뀌어 시수에 반영)와 메모(문구만)
+function weekEditor(w, i) {
+  const fri = Core.iso(Core.addDays(Core.D(w.mon), 4));
+  const evs = S.cfg.events.map((ev, k) => [ev, k]).filter(([ev]) => ev.from <= fri && (ev.to || ev.from) >= w.mon);
+  return `<tr class="wk-edit"><td colspan="14">
+    <h3>${i + 1}주 (${md(w.mon)} ~ ${md(fri)}) 행사 <span class="muted" style="font-weight:500">— 교시를 바꾸면 이 주 시수가 다시 계산됩니다</span></h3>
+    ${evs.length ? `<table>${EV_HEAD}${evs.map(([ev, k]) => evRow(ev, k)).join('')}</table>` : '<p class="muted" style="margin:0 0 8px">이 주에는 시수가 바뀌는 행사가 없습니다.</p>'}
+    <p style="margin:0 0 12px"><button class="btn small" data-act="add-ev-week:${w.mon}">+ 이 주에 행사 추가</button> <button class="btn small" data-act="week:${w.mon}">닫기</button></p>
+    ${S.mode === 'new' ? `<label class="muted">시수와 상관없는 문구 (한 줄에 하나, 예: 3.5. 학부모 공개수업)
+      <textarea rows="2" data-id="memo:${w.mon}">${esc((S.cfg.weekNotes || {})[w.mon] || '')}</textarea></label>` : ''}
+  </td></tr>`;
 }
 
 function vSubjects() {
