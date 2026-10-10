@@ -745,7 +745,7 @@ function vSubjects() {
   }
   const gradeChecks = S.out.checks.filter(c => c.msg.startsWith(`${S.grade}학년 표`));
   const band = Blank.BANDS[Blank.bandOf(S.grade)];
-  const autoForm = S.mode !== 'new' ? '' : `<div class="card"><h2>학교자율시간 과목 추가</h2>
+  const autoForm = S.mode !== 'new' || S.grade <= 2 ? '' : `<div class="card"><h2>학교자율시간 과목 추가</h2>
     <p class="muted" style="margin-top:0">관련 교과(군) 아래에 기준 시수 없는 과목으로 들어갑니다. 올해 기준 시수는 <b>${Core.fmt(gr.calTotal)}÷34 = ${Math.floor(gr.calTotal / 34)}시간</b>(또는 ${Math.floor(gr.calTotal / 34) + 1}시간)입니다. 넣은 뒤 «남은 시수 자동 배분»으로 다른 교과를 줄이세요.</p>
     <p style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:0">
       <input id="autoName" type="text" placeholder="과목 이름" style="min-width:200px">
@@ -775,16 +775,16 @@ function vAutonomy() {
   const rows = [];
   S.out.gradeResults.forEach((g, i) => {
     for (const a of g.autoInfo || []) {
-      if (!a.cur && !a.list.length) continue;
-      const need = a.gy >= 3 ? `${Core.fmt(a.T)}÷34 = ${(a.T / 34).toFixed(2)} → <b>${a.need}~${a.need + 1}시간</b>` : '자율 운영';
-      const ok = !a.list.length ? '<span class="muted">편성 없음</span>' : a.sum >= a.need && a.list.every(x => x.hours >= 17) && a.list.length <= 2 ? '<span class="good">기준 충족</span>' : '<span class="bad">확인 필요</span>';
+      if ((!a.cur || a.gy <= 2) && !a.list.length) continue;   // 1~2학년은 편성한 과목이 있을 때만(경고용)
+      const need = a.gy >= 3 ? `${Core.fmt(a.T)}÷34 = ${(a.T / 34).toFixed(2)} → <b>${a.need}~${a.need + 1}시간</b>` : '미적용(1~2학년)';
+      const ok = a.gy <= 2 ? '<span class="bad">확인 필요</span>' : !a.list.length ? '<span class="muted">편성 없음</span>' : a.sum >= a.need && a.list.every(x => x.hours >= 17) && a.list.length <= 2 ? '<span class="good">기준 충족</span>' : '<span class="bad">확인 필요</span>';
       rows.push(`<tr><td>${i + 1}학년 표</td><td>${a.gy}학년 ${a.yy}년<span class="muted"> (${a.rel})</span></td><td class="l">${a.list.map(x => `${esc(x.name)} ${x.hours}시간`).join(', ') || '-'}</td><td>${need}</td><td>${ok}</td></tr>`);
     }
   });
   return `<div class="card"><h2>학교자율시간</h2>
     <div class="scroll"><table><tr><th>표</th><th>학년·연도</th><th class="l">편성 과목·시수</th><th>기준 시수 (총 시수 ÷ 34)</th><th>판정</th></tr>${rows.join('')}</table></div>
     <ul class="checks muted src">
-      <li>3~4·5~6학년군은 두 해 중 <b>한 학기 이상 필수</b>, 1~2학년군은 자율 운영입니다. 과목은 <b>17차시 이상</b>, 한 학년 한 학기 <b>2개 이내</b>로 운영합니다.</li>
+      <li>3~4·5~6학년군은 두 해 중 <b>한 학기 이상 필수</b>, 1~2학년은 학교자율시간을 편성하지 않습니다. 과목은 <b>17차시 이상</b>, 한 학년 한 학기 <b>2개 이내</b>로 운영합니다.</li>
       <li>국가 교과가 아니면서 본교기준이 비어 있는 교과 행을 학교자율시간 과목으로 인식합니다.</li>
       <li>이 도구가 확인하지 <b>못하는</b> 것: 한 학기 안에 몰아 편성했는지(두 학기 분산 불가), 성취기준 개발·재구조화, 평가 계획 포함, 승인 절차.</li>
       <li>근거: 경상남도교육청 「2026학년도 경상남도 초등학교 교육과정 설계·운영 도움자료」, 「2025. 초등학교 학교자율시간 도움자료」(경남교육 2025-114)</li>

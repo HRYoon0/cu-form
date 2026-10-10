@@ -428,6 +428,7 @@
         const who = `${gy}학년(${yy}년${Y === m.cur ? '' : Y < m.cur ? ', 지난해' : ', 내년 계획'})`;
         autoInfo.push({ Y, gy, yy, list, sum, need, T, cur: Y === m.cur, rel: Y === m.cur ? '올해' : Y < m.cur ? '지난해' : '내년 계획' });
         if (!list.length) continue;
+        if (gy <= 2) { warn(`${m.grade}학년 표 · ${who} «${list.map(x => x.name).join('», «')}»: 1~2학년은 학교자율시간을 편성하지 않습니다. 국가 교과가 아닌 과목으로 인식됐으니 확인하세요.`); continue; }
         if (sum < need) warn(`${m.grade}학년 표 · ${who} 학교자율시간 ${sum}시간: 총 수업 시간 수 ${fmt(T)}÷34 = ${(T / RULES.weeks).toFixed(2)} → ${need}시간(또는 ${need + 1}시간) 이상이 기준입니다.`);
         for (const x of list) if (x.hours < RULES.minAutoSubject) warn(`${m.grade}학년 표 · ${who} «${x.name}» ${x.hours}시간: 학교자율시간 과목은 17차시 이상 편성합니다(경남).`);
         if (list.length > RULES.maxAutoPerTerm) warn(`${m.grade}학년 표 · ${who} 학교자율시간 과목이 ${list.length}개: 한 학기 2개 이내로 운영합니다.`);
